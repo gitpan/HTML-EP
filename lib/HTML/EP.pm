@@ -40,7 +40,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2008';
+$HTML::EP::VERSION = '0.2009';
 
 
 sub new {
@@ -962,7 +962,8 @@ sub _ep_redirect {
 
 sub _ep_set {
     my($self, $attr, $tokens, $token) = @_;
-    my $val = $self->AttrVal($attr->{'val'}, $tokens, $token, 1);
+    my $val = $self->AttrVal($attr->{'val'}, $tokens, $token,
+			     !$attr->{'noparse'});
     my $var = $attr->{'var'};
     my $ref = $self;
     while ($var =~ /(.*?)\-\>(.*)/) {

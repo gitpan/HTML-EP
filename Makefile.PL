@@ -151,7 +151,7 @@ die $status if $status;
 
 print "\n\n\nNEWS!\n";
 print "HTML::EP does now have a home page. Try\n\n";
-print "\thttp://html-ep.sourceforge.net/\n";
+print "\thttp://html-ep.sourceforge.net/\n\n";
 
 package MY;
 

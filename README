@@ -681,6 +681,29 @@ DESCRIPTION
     ep-exit
         This directive terminates processing of the current HTML page.
 
+    ep-set
+        This instruction is setting an EP variable. Suggest the following
+        example:
+
+          <ep-set var=myvar val=value>
+
+        From now on you can use
+
+          $myvar$
+
+        as an alias for "value". There's also a multiline version:
+
+          <ep-set var=myvar>value</ep-set>
+
+        The main difference between the single and the multiline version is
+        that the multiline version allows supressing variable interpretation
+        by setting the *noparse* attribute:
+
+          <ep-set var=myvar noparse=1>my $value$</ep-set>
+
+        The above example is indeed setting myvar to "my $value$" *without*
+        escaping $value$!
+
   Conditional HTML
 
     It is possible to blank out parts of the HTML document. See the
