@@ -63,6 +63,11 @@ sub _ep_session {
     my $var = $attr->{'var'} || 'session';
     $self->{'_ep_session_var'} = $var;
     $self->{$var} = $session;
+    if ($self->{'debug'}) {
+	require Data::Dumper;
+	$self->print("Created session: ", Data::Dumper::Dumper($session),
+		     "\n");
+    }
     '';
 }
 

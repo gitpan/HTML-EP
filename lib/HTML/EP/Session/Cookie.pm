@@ -86,7 +86,7 @@ sub store {
     }
     my $cookie = CGI::Cookie->new(%$data,
 				  '-value' => $freezed_session);
-    $self->{'_ep_cookies'}->{$id} = $cookie;
+    $ep->{'_ep_cookies'}->{$id} = $cookie;
     if ($locked) {
 	$self->{'_ep_data'} = $data;
     }

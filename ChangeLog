@@ -1,4 +1,9 @@
-1999-02-08  Jochen Wiedmann  <joe@ispsoft.de>
+1999-02-23  Jochen Wiedmann  <joe@ispsoft.de> (0.1127)
+
+	* lib/HTML/EP/Session/Cookie.pm (store): Fixed a bug that caused
+	  Cookies to be too short.
+
+1999-02-08  Jochen Wiedmann  <joe@ispsoft.de> (0.1126)
 
 	* lib/HTML/EP/Examples/Glimpse.pm: Fixed a bug in the parser of
 	  glimpse's output: Files without title (that is, files, where

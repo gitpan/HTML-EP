@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1126';
+$HTML::EP::VERSION = '0.1127';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -498,6 +498,11 @@ sub CgiRun ($$;$) {
     if (!$self->{_ep_stop}) {
         my @cookies = values %{$self->{'_ep_cookies'}};
 	if (@cookies) {
+	    if ($self->{'debug'}) {
+		require Data::Dumper;
+		print("Setting cookies:\n", Data::Dumper::Dumper(\@cookies),
+		      "\n");
+	    }
 	    $self->{'_ep_headers'}->{'-cookie'} = \@cookies;
 	}
         $self->print($cgi->header(%{$self->{'_ep_headers'}}), $output);
