@@ -28,15 +28,6 @@ use ExtUtils::MakeMaker qw(prompt WriteMakefile);
 if (!$ENV{CREATE_ONLY}) {
     my($ok) = 1;
     my($recommended) = 0;
-    print "Checking for HTML-Parser ... ";
-    $@ = '';
-    eval "use HTML::Parser ();";
-    if ($@) {
-	$ok = 0;
-	print("\nYou don't have installed the HTML-Parser module.\n");
-    } else {
-	print "ok\n";
-    }
 
     print "Checking for Data-Dumper ... ";
     $@ = '';
@@ -49,12 +40,32 @@ if (!$ENV{CREATE_ONLY}) {
 	print "ok\n";
     }
     
+    print "Checking for HTML-Parser ... ";
+    $@ = '';
+    eval "use HTML::Parser ();";
+    if ($@) {
+	$ok = 0;
+	print("\nYou don't have installed the HTML-Parser module.\n");
+    } else {
+	print "ok\n";
+    }
+
     print "Checking for libwww ... ";
     $@ = '';
     eval "use LWP ();";
     if ($@) {
 	$ok = 0;
 	print("\nYou don't have installed the libwww modules.\n");
+    } else {
+	print "ok\n";
+    }
+
+    print "Checking for MailTools ... ";
+    $@ = '';
+    eval "use Mail::Internet ();";
+    if ($@) {
+	$ok = 0;
+	print("\nYou don't have installed the MailTools package.\n");
     } else {
 	print "ok\n";
     }

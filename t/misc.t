@@ -3,7 +3,7 @@
 use strict;
 
 
-print "1..13\n";
+print "1..31\n";
 
 require HTML::EP;
 
@@ -172,6 +172,82 @@ _END_OF_HTML
     $parser = HTML::EP->new();
     $parser->{i} = $i;
     Test2($parser->Run($input), $output, "If: $i.\n");
+}
+
+
+$input = <<'_END_OF_HTML';
+<HTML>
+<ep-if epperl-eval="$_->{i}<0">
+    i is < 0.
+<ep-elseif epperl-eval="$_->{i}==0">
+    i equals 0.
+<ep-elseif epperl-eval="$_->{j}<0">
+    j is < 0.
+<ep-elseif epperl-eval="$_->{j}==0">
+    j equals 0.
+<ep-else>
+    Both numbers are > 0.
+</ep-if>
+</HTML>
+_END_OF_HTML
+
+my $ref;
+my @conditionals = (
+    [ -1, -1, "i is < 0." ],
+    [ -1, 0,  "i is < 0." ],
+    [ -1, 1,  "i is < 0." ],
+    [ 0, -1,  "i equals 0." ],
+    [ 0, 0,   "i equals 0." ],
+    [ 0, 1,   "i equals 0." ],
+    [ 1, -1,  "j is < 0." ],
+    [ 1, 0,   "j equals 0." ],
+    [ 1, 1,   "Both numbers are > 0." ]
+);
+foreach $ref (@conditionals) {
+    $parser = HTML::EP->new();
+    $parser->{i} = $ref->[0];
+    $parser->{j} = $ref->[1];
+    my $result = $ref->[2];    
+    $output = <<"_END_OF_HTML";
+<HTML>
+
+    $result
+
+</HTML>
+_END_OF_HTML
+    Test2($parser->Run($input), $output);
+}
+
+
+$input = <<'_END_OF_HTML';
+<HTML>
+<ep-if epperl-eval="$_->{i}<0">
+    i is < 0.
+<ep-elseif epperl-eval="$_->{i}==0">
+    i equals 0.
+<ep-else><ep-if epperl-eval="$_->{j}<0">
+    j is < 0.
+<ep-elseif epperl-eval="$_->{j}==0">
+    j equals 0.
+<ep-else>
+    Both numbers are > 0.
+</ep-if></ep-if>
+</HTML>
+_END_OF_HTML
+
+foreach $ref (@conditionals) {
+    $parser = HTML::EP->new();
+    $parser->{i} = $ref->[0];
+    $parser->{j} = $ref->[1];
+    my $result = $ref->[2];    
+    $output = <<"_END_OF_HTML";
+<HTML>
+
+    $result
+
+</HTML>
+_END_OF_HTML
+    Test2($parser->Run($input), $output);
 }
 
 

@@ -447,7 +447,7 @@ This command executes an SQL statement. The C<query> attribute will
 be used for passing the SQL statement. Of course a multiline version
 is available, thus
 
-    <ep-query query="INSERT INTO foo VALUES (1, 'bar')">
+    <ep-query statement="INSERT INTO foo VALUES (1, 'bar')">
 
 is the same as
 
@@ -458,7 +458,7 @@ is the same as
 If your query retrieves a result, use the C<result> attribute to store it
 in a variable, for example like this:
 
-    <ep-query query="SELECT * FROM employees" result="employees">
+    <ep-query statement="SELECT * FROM employees" result="employees">
 
 This will create a variable C<employees>, an array ref of hash refs.
 You can use the ep-list command for displaying the output. See
@@ -526,6 +526,35 @@ number. The idea is generating SQL queries automatically out of the
 C<address> variable.
 
 =back
+
+
+=head2 Conditional HTML
+
+It is possible to blank out parts of the HTML document. See the following
+example:
+
+    <html><head><title>Conditional HTML</title></head>
+    <body>
+      <h1>Conditional HTML</h1>
+      <ep-if epperl-eval="$_->{cgi}->param('i') < 0">
+        You have entered a negative number for i!
+      <ep-else epperl-eval="$_->{cgi}->param('i') == 0">
+        You have entered zero for i!
+      <ep-else>
+        <ep-if epperl-eval="$_->{cgi}->param('j') < 0">
+          You have entered a negative number for j!
+        <ep-else epperl-eval="$_->{cgi}->param('h') == 0">
+          You have entered zero for j!
+        <ep-else>
+          Ok, both numbers are positive.
+        </ep-else>
+      </ep-else>
+    </body>
+    </html>
+
+The example is of course somewhat unnatural, because you'd better use
+a single ep-perl in that case, but it shows that we can use
+arbitrary complex structures of conditional HTML.
 
 
 =head2 Error handling
@@ -786,7 +815,7 @@ model, and start using it now:
 If you create a shop extension, put it into a separate package,
 C<HTML::EP::Shop>, say. When working with the extension, use
 
-    <ep-package name="HTML::EP::Shop">
+    <ep-package name="HTML::EP::Shop" isa="HTML::EP">
 
 as the very first line, so that your Parser object becomes blessed into
 the Shop package. And let your shop extension file look like this:
@@ -805,7 +834,10 @@ be loaded with
 
     <ep-perl package="HTML::EP::Shop" src="shop.lib">
 
-but this will change in the future.
+but this will change in the future. The I<isa> attribute can be omitted
+and defaults to C<HTML::EP>. Otherwise it is a blank separated list
+of package names, just like @ISA is.
+
 
 
 =head1 TODO

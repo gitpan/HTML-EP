@@ -30,13 +30,14 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1000';
+$HTML::EP::VERSION = '0.1002';
 @HTML::EP::ISA = qw(HTML::Parser);
 
 
 %HTML::EP::BUILTIN_METHODS = (
     'ep-comment' =>    { method => '_ep_comment',
-			 default => 'comment' },
+			 default => 'comment',
+		         always => 1 },
     'ep-package' =>    { method => '_ep_perl' },
     'ep-perl' =>       { method => '_ep_perl',
 			 default => 'code' },
@@ -51,13 +52,16 @@ $HTML::EP::VERSION = '0.1000';
 			 default => 'template' },
     'ep-input' =>      { method => '_ep_input' },
     'ep-if' =>         { method => '_ep_if',
-			 default => 'result' },
+			 default => 'result',
+		         always => 1 },
     'ep-elseif' =>     { method => '_ep_elseif',
 			 default => 'result',
-			 condition => 1 },
+			 condition => 1,
+		         always => 1 },
     'ep-else' =>       { method => '_ep_elseif',
 			 default => 'result',
-			 condition => 0 },
+			 condition => 0,
+		         always => 1 },
     'ep-mail' =>       { method => '_ep_mail',
 			 default => 'body' }
 );
@@ -68,6 +72,7 @@ sub new ($) {
     my $self = { _ep_stack => [],
 		 _ep_funcs => { %HTML::EP::BUILTIN_METHODS },
 		 _ep_output => '',
+		 _ep_state => 1
 	       };
     if (!($self->{cgi} = CGI->new())) {
 	die "Cannot create CGI object: $!";
@@ -139,8 +144,8 @@ sub declaration ($$) {
 }
 *text = \&declaration;
 sub comment ($$) {
-    my($self, $decl) = @_;
-    $self->{_ep_output} .= "<!--${decl}-->";
+    my($self, $msg) = @_;
+    $self->{_ep_output} .= "<!--${msg}-->";
 }
 
 sub start ($$$$$) {
@@ -149,6 +154,9 @@ sub start ($$$$$) {
 	my $func = $self->{_ep_funcs}->{$tag};
 	if (!$func) {
 	    die "No such function: $tag";
+	}
+	if (!$self->{_ep_state}  &&  !$func->{always}) {
+	    return;
 	}
 
 	my($var, @parseList, @perlList);
@@ -179,19 +187,27 @@ sub start ($$$$$) {
 	}
 
 	my $method = $func->{method};
+	my $state = $self->{_ep_state};
 	if ($tag eq 'ep-if') {
 	    undef $text;
+	    $self->{_ep_state} = $attr->{eval}  &&  $state;
+	    if ($self->{debug}) {
+		print("ep-if: Eval = '",
+		      (defined($attr->{eval}) ? $attr->{eval} : ''),
+		      "' changing state to ",
+		      ($self->{_ep_state} ? 1 : 0), "\n");
+	    }
 	} else {
 	    $text = $self->$method($attr, $func);
 	}
 	if (!defined($text)) {
 	    # Multiline mode
-	    my $pop = { func => $func,
-			attr => $attr,
+	    my $pop = { attr => $attr,
 			tag => $tag,
 			output => $self->{_ep_output},
 			current => ($attr->{eval} ? 1 : 0),
-			result => undef
+			result => undef,
+			state => $state
 		      };
 	    push(@{$self->{_ep_stack}}, $pop);
 	    $self->{_ep_output} = '';
@@ -204,10 +220,18 @@ sub start ($$$$$) {
 sub end ($$$) {
     my($self, $tag, $text) = @_;
     if ($tag =~ /^ep\-/) {
+	my $func = $self->{_ep_funcs}->{$tag};
+	if (!$func) {
+	    die "No such function: $tag";
+	}
+	if (!$self->{_ep_state}  &&  !$func->{always}) {
+	    return;
+	}
 	my $pop;
 	if (!($pop = pop(@{$self->{_ep_stack}}))  ||  $pop->{tag} ne $tag) {
 	    die "/$tag without $tag";
 	}
+
 	if ($tag eq 'ep-if') {
 	    if ($pop->{current}) {
 		$text = $self->{_ep_output};
@@ -216,15 +240,17 @@ sub end ($$$) {
 	    }
 	    $self->{_ep_output} = $pop->{output};
 	} else {
-	    my $func = $pop->{func};
 	    my $method = $func->{method};
 	    my $attr = $pop->{attr};
 	    $attr->{$func->{default}} = $self->{_ep_output};
 	    $self->{_ep_output} = $pop->{output};
 	    $text = $self->$method($attr, $func);
 	}
+	$self->{_ep_output} .= $text;
+	$self->{_ep_state} = $pop->{state};
+    } elsif ($self->{_ep_state}) {
+	$self->{_ep_output} .= $text;
     }
-    $self->{_ep_output} .= $text;
 }
 
 
@@ -261,6 +287,7 @@ _ep_comment => <<'end_of__ep_comment',
 sub _ep_comment ($$;$) {
     my($self, $attr) = @_;
     if (!defined($attr->{comment})) {
+	$self->{_ep_state} = 0;
 	return undef;
     }
     ''
@@ -275,6 +302,9 @@ sub _ep_perl ($$;$) {
     my $code;
     if ($attr->{name}) {
 	bless($self, $attr->{name});
+	my $isa = $attr->{isa} || 'HTML::EP';
+	no strict 'refs';
+	@{$attr->{name} . "::ISA"} = split(/ /, $isa);
     }
     if ($file) {
 	my $fh = Symbol::gensym();
@@ -327,6 +357,10 @@ sub _ep_database ($$;$) {
     my $pass = $attr->{password} || $ENV{DBI_PASS};
     my $dbhvar = $attr->{dbh} || 'dbh';
     require DBI;
+    if ($self->{debug}) {
+	printf("Connecting to database: dsn = %s, user = %s, pass = %s\n",
+	       $dsn, $user, $pass);
+    }
     $self->{$dbhvar} = DBI->connect($dsn, $user, $pass, { RaiseError => 1 });
     '';
 }
@@ -342,17 +376,29 @@ sub _ep_query ($$;$) {
     }
     my $dbh = $self->{$attr->{dbh} || 'dbh'};
     if (!$dbh) { die "Not connected"; }
+    if ($self->{debug}) {
+	print "Executing query, statement = $statement\n";
+    }
     my $result = $attr->{result};
     if ($result) {
 	my $sth = $dbh->prepare($statement);
 	$sth->execute();
 	my $list = [];
 	my $ref;
-	while ($ref = $sth->fetchrow_hashref()) {
-	    push(@$list, {%$ref});
+	if ($attr->{resulttype}  &&  $attr->{resulttype} eq 'array') {
+	    while ($ref = $sth->fetchrow_arrayref()) {
+		push(@$list, [@$ref]);
+	    }
+	} else {
+	    while ($ref = $sth->fetchrow_hashref()) {
+		push(@$list, {%$ref});
+	    }
 	}
 	$self->{$result} = $list;
 	$self->{"${result}_rows"} = @$list;
+	if ($self->{debug}) {
+	    print "Result: ", scalar(@$list), " rows.\n";
+	}
     } else {
 	$dbh->do($statement);
     }
@@ -448,9 +494,16 @@ sub _ep_elseif ($$;$) {
     }
     if ($pop->{current}) {
 	$pop->{result} = $self->{_ep_output};
-	$pop->{current} = 0;
+	$pop->{current} = $self->{_ep_state} = 0;
     } elsif (!defined($pop->{result})) {
 	$pop->{current} = !$func->{condition} || ($attr->{eval} ? 1 : 0);
+	$self->{_ep_state} = $pop->{current} && $pop->{state};
+	if ($self->{debug}) {
+	    print($pop->{tag}, ": Eval = '",
+		  (defined($attr->{eval}) ? $attr->{eval} : ''),
+		  "' changing state to ",
+		  ($self->{_ep_state} ? 1 : 0), "\n");
+	}
     }
     $self->{_ep_output} = '';
 }

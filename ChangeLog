@@ -1,3 +1,21 @@
+1998-06-26  Jochen Wiedmann  <joe@ispsoft.de> (0.1002)
+
+	* lib/HTML/EP.pod: Added isa attribute to ep-package.
+	* EP.pm.in: Added support for $self->{debug}.
+	* ep.cgi.PL: Added setting of $self->{debug} if "debug" variable
+	  is passed.
+	* EP.pm.in (_ep_query): Added resulttype attribute.
+
+1998-06-25  Jochen Wiedmann  <joe@ispsoft.de> (0.1001)
+
+	* lib/HTML/EP.pod: Forgot to document ep-if and frieds
+	* Added $self->{_ep_state}
+	* Makefile.PL: Added check for MailTools, my thanks to Michael
+	  Bauer <michael@h-net.com>
+	* lib/HTML/EP.pod: Fixed bug in ep-query docs; a "query"
+	  attribute was used instead of "statement", thanks to Michael
+	  Bauer <michael@h-net.com>
+
 1998-06-22  Jochen Wiedmann  <joe@ispsoft.de> (0.1000)
 
 	* Initial version.
