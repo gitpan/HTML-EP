@@ -40,7 +40,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2005';
+$HTML::EP::VERSION = '0.2006';
 
 
 sub new {
@@ -287,6 +287,27 @@ sub escapeHTML {
     $str;
 }
 
+sub FindVar {
+    my($self, $var, $subvar) = @_;
+    if ($var eq 'cgi') {
+	$subvar =~ s/\-\>//;
+	return $self->{'cgi'}->param($subvar);
+    }
+
+    $var = $self->{$var};
+    while ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
+	return '' unless ref $var;
+	my $v = $1;
+	$subvar = $2;
+	if ($v =~ /^\d+$/) {
+	    $var = $var->[$v];
+	} else {
+	    $var = $var->{$v};
+	}
+    }
+    defined $var ? $var : '';
+}
+
 sub ParseVar {
     my($self, $type, $var, $subvar) = @_;
     my $func;
@@ -305,26 +326,7 @@ sub ParseVar {
 	}
     }
 
-    if ($var eq 'cgi') {
-	$subvar =~ s/\-\>//;
-	$var = $self->{'cgi'}->param($subvar);
-    } else {
-	$var = $self->{$var};
-	while ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
-	    if (!ref($var)) {
-		$var = '';
-		last;
-	    }
-	    my $v = $1;
-	    $subvar = $2;
-	    if ($v =~ /^\d+$/) {
-		$var = $var->[$v];
-	    } else {
-		$var = $var->{$v};
-	    }
-	}
-    }
-    $var = '' unless defined($var);
+    $var = FindVar($self, $var, $subvar);
 
     if (!$type  ||  $type eq '%') {
 	$var = $self->escapeHTML($var);
@@ -342,7 +344,7 @@ sub ParseVar {
 
 sub ParseVars ($$) {
     my($self, $str) = @_;
-    $str =~ s/\$([\&\@\#\~\%]?)(\w+)((\-\>\w+)*)\$/$self->ParseVar($1,$2,$3)/eg;
+    $str =~ s/\$([\&\@\#\~\%]?)(\w+)((?:\-\>\w+)*)\$/$self->ParseVar($1,$2,$3)/eg;
     $str;
 }
 
@@ -664,14 +666,13 @@ sub _ep_list {
     my $output = '';
     my($list, $range);
     if ($range = $attr->{'range'}) {
-	if ($range =~ /^(\d+)\.\.(\d+)$/) {
-	    $list = [$1 .. $2];
-	} else {
-	    $list = [split(/,/, $range)];
-	}
+	$list = [ map { $_ =~ /(\d+)\.\.(\d+)/ ? ($1 .. $2) : $_}
+		  split(/,/, $range) ];
     } else {
 	my $items = $attr->{'items'};
-	$list = ref($items) ? $items : $self->{$items};
+	$list = ref($items) ? $items :
+	    ($items =~ /^(\w+)((?:\-\>\w+)+)$/) ?
+		$self->FindVar($1, $2) : $self->{$items};
     }
     $self->print("_ep_list: Template = $template, Items = ", @$list, "\n")
 	if $debug;
@@ -697,7 +698,7 @@ sub _ep_list {
     }
     if (my $format = $attr->{'format'}) {
 	$attr->{'output'} = $output;
-	$format =~ s/\$([\@\#\~]?)(\w+)((\-\>\w+)*)\$/HTML::EP::ParseVar($attr, $1, $2, $3)/eg;
+	$format =~ s/\$([\@\#\~]?)(\w+)((?:\-\>\w+)*)\$/HTML::EP::ParseVar($attr, $1, $2, $3)/eg;
 	$format;
     } else {
 	$output;

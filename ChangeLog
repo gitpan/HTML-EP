@@ -1,3 +1,10 @@
+1999-11-17  Jochen Wiedmann  <joe@ispsoft.de> (0.2006)
+
+	* lib/HTML/EP.pm (_ep_list): Ranges like 1..5,7..9 are now
+	  allowed.
+	* lib/HTML/EP.pm (_ep_list): One can now use list="session->item"
+	  rather than the simple list="item". Jason McMullan <jmcc@ontv.com>.
+
 1999-11-08  Jochen Wiedmann  <joe@ispsoft.de> (0.2005)
 
 	* Added $self->escapeHTML() in favour of

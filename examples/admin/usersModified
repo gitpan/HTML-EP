@@ -25,6 +25,7 @@ my $PATH_ALIASES = "/etc/mail/aliases";
 my $PATH_NEWALIASES = "/usr/bin/newaliases";
 my $PATH_SQUID_CONF = -f "/etc/squid/squid.conf" ?
     "/etc/squid/squid.conf" : "/etc/squid.conf";
+my $PATH_SQUID = (-x "/usr/sbin/squid") ? "/usr/sbin/squid" : "/usr/bin/squid";
 
 my $DBI_DSN = 'DBI:mysql:user';
 my $DBI_USER = 'nobody';
@@ -288,8 +289,8 @@ sub SCommand {
     Command(sprintf($fmt, @args));
 }
 sub Command {
-    print ("Executing command: ", join(" ", @_), "\n");
-    system @_;
+    print ("Executing command: ", join(" ", @_), "\n") if $verbose;
+    system @_ unless $debug;
 }
 
 
@@ -312,36 +313,44 @@ sub ConfigureSquid {
     # Make range names unique
     my %names;
     my $acl = '';
-    for (my $i = 0;  $i < @$ranges;  $i++) {
-	my $name = $ranges->[$i];
-	my $from;
-	my $to;
-	if ($name =~ /(.*?),(.*?),(.*)/) {
-	    $from = $1;
-	    $to = $2;
-	    $name = $3;
-	    if ($from !~ /^\d+\.\d+\.\d+\.\d+$/) {
-		die "Invalid From IP: $from";
-	    }
-	    if ($to !~ /^\d+\.\d+\.\d+\.\d+$/) {
-		die "Invalid To IP: $to";
-	    }
-	}
-        $name =~ s/\s+/_/g;
-        $name =~ s/[^\w\d_]//g;
-        for (my $j = 0;  1;  $j++) {
-	    my $n = $j ? ($name . "_$j") : $name;
-	    if (!$names{$n}) {
-		$name = $n;
-		if (defined($from)) {
-		    print "Adding acl $name $from-$to\n" if $verbose;
-		    $acl .= "acl $name src $from-$to\n";
+    if (@$ranges) {
+	for (my $i = 0;  $i < @$ranges;  $i++) {
+	    my $name = $ranges->[$i];
+	    my $from;
+	    my $to;
+	    if ($name =~ /(.*?),(.*?),(.*)/) {
+		$from = $1;
+		$to = $2;
+		$name = $3;
+		if ($from !~ /^\d+\.\d+\.\d+\.\d+$/) {
+		    die "Invalid From IP: $from";
 		}
-		$names{$n} = 1;
-		last;
+		if ($to !~ /^\d+\.\d+\.\d+\.\d+$/) {
+		    die "Invalid To IP: $to";
+		}
+	    }
+	    $name =~ s/\s+/_/g;
+	    $name =~ s/[^\w\d_]//g;
+	    for (my $j = 0;  1;  $j++) {
+		my $n = $j ? ($name . "_$j") : $name;
+		if (!$names{$n}) {
+		    $name = $n;
+		    if (defined($from)) {
+			print "Adding acl $name $from-$to\n" if $verbose;
+			$acl .= "acl $name src $from-$to\n";
+		    }
+		    $names{$n} = 1;
+		    last;
+		}
 	    }
 	}
+    } else {
+	$acl = "\n" .
+	       "http_access deny all\n" .
+	       "icp_access deny all\n" .
+	       "miss_access deny all\n";
     }
+
 
     $acl .= "\n";
     foreach my $aclname (keys %names) {
@@ -394,6 +403,8 @@ This can be fatal for the WWW proxy system, please take immediate action!
 END_OF_MESSAGE
 	}
     }
+
+    Command($PATH_SQUID, "-k", "reconfigure")
 }
 
 
@@ -452,9 +463,6 @@ Possible options are:
     ++$verbose if $debug;
 
     if ($o{squid}) {
-	if (!@{$o{range}}) {
-	    Usage();
-	}
 	ConfigureSquid($o{range});
     } else {
 	my $users_file = ReadUserListFromFile();

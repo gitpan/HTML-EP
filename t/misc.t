@@ -9,7 +9,7 @@ $^W = 1;
 $| = 1;
 
 
-print "1..80\n";
+print "1..81\n";
 
 use HTML::EP ();
 
@@ -179,6 +179,11 @@ Test2($parser->Run('a<ep-include file="foo">c'), "abc", "Include.\n");
 $parser = HTML::EP->new();
 $parser->{'list'} = [1,2,3,4];
 $input = 'a<ep-list items=list item=l>$l$<ep-include file="foo"></ep-list>c';
+Test2($parser->Run($input), "a1b2b3b4bc", "Repeated include.\n");
+
+$parser = HTML::EP->new();
+$parser->{'session'}->{'list'} = [[1,2,3,4]];
+$input = 'a<ep-list items="session->list->0" item=l>$l$<ep-include file="foo"></ep-list>c';
 Test2($parser->Run($input), "a1b2b3b4bc", "Repeated include.\n");
 
 

@@ -336,7 +336,7 @@ the class name in the ep-session statement.
 This class is using Cookies, as introduced by Netscape 2. When using
 Cookies for the session, you have to use a slightly different syntax:
 
-  <ep-session class="HTML::EP::Session::DBI" id="sessions"
+  <ep-session class="HTML::EP::Session::Cookie" id="sessions"
               var=session id="$@cgi->id$" expires="+1h"
               domain="www.company.com" path="/"
               zlib=0 base64=0>

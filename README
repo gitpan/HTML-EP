@@ -23,11 +23,6 @@ SYNOPSIS
         </body>
         </html>
 
-WARNING
-    THIS IS ALPHA SOFTWARE. It is *only* 'Alpha' because the
-    interface (API) is not finalised. The Alpha status does not
-    reflect code quality or stability.
-
 DESCRIPTION
     Have you ever written a CGI binary? Easy thing, isn't it? Was
     just fun!
@@ -518,21 +513,31 @@ DESCRIPTION
         The variable *i* is initially set to 0 and incremented by
         one with any element.
 
-        You must not create a variable for the *items* attribute:
-        When using a *range* attribute instead of *items* then a
-        variable list will be created for you. The *range* attribute
-        can be either `start..stop' in which case a list of the
-        numbers start..stop will be created. Otherwise the attribute
-        must be a comma separated list of values. See the *ep-
-        select* command below for an example of the *range*
-        attribute.
+        As an alternative to the *items* attribute, you may prefer
+        the *range* attribute: For example
+
+          <ep-list range="1..12" item=month><OPTION>$month$</ep-list>
+
+        will create the options array of a select box for you, where
+        the user can select a month. If your prefer month names, you
+        may better choose
+
+          <ep-list range="jan,feb,mar,apr,jun,jul,aug,sep,oct,nov,dec"
+           item=month><OPTION>$month$</ep-list>
+
+        It is even possible to mix both versions, as in
+
+          <ep-list range="1..3,6..7,10" item=m><OPTION>$m$</ep-list>
+
+        See the *ep-select* command below for another example of the
+        *range* attribute.
 
         It is possible to nest multiple ep-list statements, as in
 
           <ep-list range="1..3" item="i"><ep-list range="4..6"
-            item="j">$i$$j$</ep-list></ep-list>
+            item="j">$i$$j$ </ep-list></ep-list>
 
-        This will create the output 141516242526343536.
+        This will create the output "14 15 16 24 25 26 34 35 36".
 
     ep-select
         This is similar to ep-list, but it is specifically designed
