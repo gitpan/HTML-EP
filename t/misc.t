@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: misc.t,v 1.1.1.1 1999/08/13 12:15:32 joe Exp $
+# $Id: misc.t,v 1.2 1999/09/21 10:19:05 joe Exp $
 #
 
 use strict;
@@ -324,9 +324,9 @@ if (!$have_dbi  ||  !$have_dbd_csv) {
 <P>Update = $address->update$
 END_OF_HTML
     $output .= <<'END_OF_HTML';
-<P>Names = name, street, zip, city, date1, date2, date3
-<P>Values = 'joe', 'Am Eisteich 9', 72555, 'Metzingen', '1998-07-02', '1998-07-02', '2008-07-02'
-<P>Update = name = 'joe', street = 'Am Eisteich 9', zip = 72555, city = 'Metzingen', date1 = '1998-07-02', date2 = '1998-07-02', date3 = '2008-07-02'
+<P>Names = date2,date3,city,name,zip,date1,street
+<P>Values = '1998-07-02','2008-07-02','Metzingen','joe',72555,'1998-07-02','Am Eisteich 9'
+<P>Update = date2='1998-07-02',date3='2008-07-02',city='Metzingen',name='joe',zip=72555,date1='1998-07-02',street='Am Eisteich 9'
 END_OF_HTML
     $parser = HTML::EP->new();
     Test2($parser->Run($input), $output,

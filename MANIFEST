@@ -8,6 +8,7 @@ lib/Bundle/HTML/EP.pm		Bundle for CPAN installation
 lib/HTML/EP.pm			Main module
 lib/HTML/EP.pod			Docs
 lib/HTML/EP/Install.pm
+lib/HTML/EP/EditTable.pm	Editing a DBI table
 lib/HTML/EP/Locale.pm		Localization
 lib/HTML/EP/Session.pm		Session management
 lib/HTML/EP/Session/Cookie.pm	Cookie sessions

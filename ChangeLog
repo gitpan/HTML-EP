@@ -1,7 +1,12 @@
+1999-09-19  Jochen Wiedmann  <joe@ispsoft.de> (0.1135)
+
+	* lib/HTML/EP.pm (_ep_input): Added handling of NULL dates.
+	* lib/HTML/EP.pm: Added ep-input-sql-query.
+
 1999-08-31  Jochen Wiedmann  <joe@ispsoft.de> (0.1134)
-
-	* lib/HTML/EP/Install.pm: Added InstallFiles and InstallCgiFiles.
-
+  
+        * lib/HTML/EP/Install.pm: Added InstallFiles and InstallCgiFiles.
+  
 1999-08-27  Jochen Wiedmann  <joe@ispsoft.de> (0.1133)
 
 	* lib/HTML/EP/Session.pm: Added support for multiple sessions.

@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1134';
+$HTML::EP::VERSION = '0.1135';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -518,7 +518,7 @@ sub SetCookies {
 
 sub text ($$) {
     my($self, $text) = @_;
-    $self->{_ep_output} .= $text;
+    $self->{_ep_output} .= $text if defined $text;
 }
 sub comment ($$) {
     my($self, $msg) = @_;
@@ -1018,6 +1018,38 @@ sub _ep_error ($$;$) {
 end_of__ep_error
 
 
+_ep_input_sql_query => <<'_end_of__ep_input_sql_query',
+sub _ep_input_sql_query {
+    my $self = shift;  my $attr = shift;
+    my $dbh = $self->{'dbh'} ||
+	die "Missing database-handle (Did you run ep-database?)";
+    my $dest = $attr->{'dest'} ||
+	die "Missing attribute 'dest' (Destination variable)";
+    my $debug = $self->{'debug'};
+
+    my $names = '';
+    my $values = '';
+    my $update = '';
+    my $comma = '';
+    while (my($var, $val) = each %{$self->{$dest}}) {
+	$names .= $comma . $var;
+	my $v = $val->{'val'};
+	$v = $dbh->quote($v) if !defined($v) || $val->{'type'} ne 'n';
+	$values .= $comma . $v;
+	$update .= $comma . "$var=$v";
+	$comma = ',' unless $comma;
+    }
+    my $hash = $self->{$dest};
+    $hash->{'names'} = $names;
+    print "_ep_input_sql_query: Setting $dest\->names to $names\n" if $debug;
+    $hash->{'values'} = $values;
+    print "_ep_input_sql_query: Setting $dest\->values to $values\n" if $debug;
+    $hash->{'update'} = $update;
+    print "_ep_input_sql_query: Setting $dest\->update to $update\n" if $debug;
+    '';
+}
+_end_of__ep_input_sql_query
+
 _ep_input => <<'end_of__ep_input',
 sub _ep_input ($$;$) {
     my($self, $attr) = @_;
@@ -1028,16 +1060,6 @@ sub _ep_input ($$;$) {
     my $i = 0;
     my $list = $attr->{'list'};
     my $dest = $attr->{'dest'};
-
-    my($dbh, @names, @values);
-    if ($attr->{'sqlquery'}) {
-	$dbh = $self->{'dbh'} ||
-	    die "Missing database-handle (Did you run ep-database`";
-	if ($list) {
-	    die "Cannot create 'names', 'values' and 'update' attributes"
-		. " if 'list' is set.";
-	}
-    }
 
     if ($list) {
 	$self->{$dest} = [];
@@ -1062,12 +1084,17 @@ sub _ep_input ($$;$) {
 			my $year = $cgi->param("${p}dy_$col");
 			my $month = $cgi->param("${p}dm_$col");
 			my $day = $cgi->param("${p}dd_$col");
-			if ($year < 20) {
-			    $year += 2000;
-			} elsif ($year < 100) {
-			    $year += 1900;
+			if ($year eq ''  &&  $month eq ''  &&  $day eq '') {
+			    $val = undef;
+			} else {
+			    if ($year < 20) {
+				$year += 2000;
+			    } elsif ($year < 100) {
+				$year += 1900;
+			    }
+			    $val = sprintf("%04d-%02d-%02d",
+					   $year, $month, $day);
 			}
-			$val = sprintf("%04d-%02d-%02d", $year, $month, $day);
 			$hash->{$col} = { col => $col,
 					  val => $val,
 					  type => 'd',
@@ -1084,30 +1111,24 @@ sub _ep_input ($$;$) {
 				      val => $val
 				      };
 		}
-		if ($dbh) {
-		    push @names, $col;
-		    push @values, ($type eq 'n') ? $val : $dbh->quote($val);
-		}
 	    }
 	}
 	if ($list) {
-	    if (!%$hash) {
-		last;
-	    }
+	    die "Cannot create 'names', 'values' and 'update' attributes"
+		. " if 'list' is set." if $attr->{'sqlquery'};
+	    last unless %$hash;
 	    $hash->{'i'} = $i++;
 	    push(@{$self->{$dest}}, $hash);
 	} else {
-	    if ($dbh) {
-		$hash->{'names'} = join(', ', @names);
-		$hash->{'values'} = join(', ', @values);
-		$i = 0;
-		$hash->{'update'} = join(', ',
-					 map { $_." = ".$values[$i++] }
-					 @names);
-	    }
 	    $self->{$dest} = $hash;
+	    $self->_ep_input_sql_query($attr) if $attr->{'sqlquery'};
 	    last;
 	}
+    }
+    if ($self->{'debug'}) {
+	require Data::Dumper;
+	$self->print("_ep_input: Gelesene Daten\n",
+		   Data::Dumper->new([$self->{$dest}])->Indent(1)->Terse(1)->Dump());
     }
     '';
 }

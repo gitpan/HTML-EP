@@ -599,6 +599,35 @@ DESCRIPTION
               Total sum: $sum$
             </ep-mail>
 
+    ep-input-sql-query
+            <ep-input-sql-query dest=art>
+
+        This method is internally called by ep-input and implements the
+        creation of the *names*, *values* and *updates* attributes.
+
+        It takes as input the hash ref given by the variable *dest*, usually
+        created by ep-input. The hash ref consists of column names as keys
+        and hash refs with the attributes *type* and *val*.
+
+        The main reason for putting this into a separate method is
+        subclassing: It is quite usual, that you want ep-input to read the
+        data, then do some verification and/or modification on the data (for
+        example, canonicalizing dates) and finally create the SQL query.
+        This can be done quite easily by subclassing the
+        *_ep_input_sql_query* method: Within the method you verify and/or
+        modify data entered by the user and then call the super class.
+
+        For example, a typical subclass implementation could look like this:
+
+          sub _ep_input_sql_query {
+            my $self = shift;  my $attr = shift;
+            # If the user left the MYCOL column empty, set it to NULL.
+            my $dest = $attr->{'dest'};
+            $self->{$dest}->{'MYCOL'} = undef
+                if $self->{$dest}->{'MYCOL'} eq '';
+            $self->SUPER::_ep_input_sql_query($attr);
+          }
+
     ep-include
         Sometimes you want to source external files. This can be done by
         using
