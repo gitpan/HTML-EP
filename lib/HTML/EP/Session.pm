@@ -432,12 +432,19 @@ Cookies for the session, you have to use a slightly different syntax:
 
   <ep-session class="HTML::EP::Session::DBI" name="sessions"
               var=session id="$@cgi->id$" expires="+1h"
-              domain="www.company.com" path="/">
+              domain="www.company.com" path="/"
+              zlib=0 base64=0>
 
 The attribute I<name> is the cookie's name. (Cookies are name/value
 pairs.) The optional attributes I<expires>, I<domain> and I<path>
 are referring to the respective attributes of CG::Cookie->new().
 L<CGI::Cookie(3)>.
+
+Cookies are unfortunately restricted to a certain size, about 4096
+bytes. If your session is getting too large, you might try to reduce
+the cookie size by using the Compress::Zlib and/or MIME::Base64
+module. This is enabled by adding the parameters I<zlib=1> and/or
+I<base64=1>.
 
 
 =head1 AUTHOR AND COPYRIGHT

@@ -28,16 +28,45 @@ require CGI::Cookie;
 
 package HTML::EP::Session::Cookie;
 
+
+sub encode {
+    my($self, $in, $attr) = @_;
+    my $out = Storable::nfreeze($in);
+    if ($attr->{'zlib'}) {
+	require Compress::Zlib;
+	$out = Compress::Zlib::compress($out);
+    }
+    if ($attr->{'base64'}) {
+	require MIME::Base64;
+	$out = MIME::Base64::encode_base64($out);
+    } else {
+	$out = unpack("H*", $out);
+    }
+    $out;
+}
+
+sub decode {
+    my($self, $in, $attr) = @_;
+    my $out;
+    if ($attr->{'base64'}) {
+	require MIME::Base64;
+	$out = MIME::Base64::decode_base64($in);
+    } else {
+	$out = pack("H*", $in);
+    }
+    if ($attr->{'zlib'}) {
+	require Compress::Zlib;
+	$out = Compress::Zlib::uncompress($out);
+    }
+    Storable::thaw($out);
+}
+
 sub new {
     my($proto, $ep, $id, $attr) = @_;
     my $class = (ref($proto) || $proto);
     my $session = {};
     bless($session, $class);
-    my $freezed_session = unpack("H*", Storable::nfreeze($session));
-    if ($ep->{'debug'}) {
-	$ep->printf("HTML::EP::Session::Cookie: freezed session %s\n",
-		    $freezed_session);
-    }
+    my $freezed_session = $proto->encode($session, $attr);
     my %opts;
     $opts{'-name'} = $id;
     $opts{'-expires'} = $attr->{'expires'} || '+1h';
@@ -46,6 +75,8 @@ sub new {
     my $cookie = CGI::Cookie->new(%opts,
 				  '-value' => $freezed_session);
     $ep->{'_ep_cookies'}->{$id} = $cookie;
+    $opts{'zlib'} = $attr->{'zlib'};
+    $opts{'base64'} = $attr->{'base64'};
     $session->{'_ep_data'} = \%opts;
     $session;
 }
@@ -67,11 +98,10 @@ sub open {
 	die "Missing cookie $id." .
 	    " (Perhaps Cookies not enabled in the browser?)";
     }
-    if ($ep->{'debug'}) {
-	$ep->printf("HTML::EP::Session::DBI: thawing session %s\n", $cookie);
-    }
-    my $session = Storable::thaw(pack("H*", $cookie));
+    my $session = $proto->decode($cookie, $attr);
     bless($session, $class);
+    $opts{'zlib'} = $attr->{'zlib'};
+    $opts{'base64'} = $attr->{'base64'};
     $session->{'_ep_data'} = \%opts;
     $session;
 }
@@ -79,11 +109,9 @@ sub open {
 sub store {
     my($self, $ep, $id, $locked) = @_;
     my $data = delete $self->{'_ep_data'};
-    my $freezed_session = unpack("H*", Storable::nfreeze($self));
-    if ($ep->{'debug'}) {
-	$ep->printf("HTML::EP::Session::Cookie: freezed session %s\n",
-		    $freezed_session);
-    }
+    my $freezed_session = $self->encode($self, $data);
+    delete $data->{'zlib'};
+    delete $data->{'base64'};
     my $cookie = CGI::Cookie->new(%$data,
 				  '-value' => $freezed_session);
     $ep->{'_ep_cookies'}->{$id} = $cookie;
