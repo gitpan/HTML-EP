@@ -31,16 +31,6 @@ package HTML::EP::Session;
 $HTML::EP::Session::VERSION = '0.1001';
 @HTML::EP::Session::ISA = qw(HTML::EP);
 
-sub init {
-    my $self = shift;
-    $self->SUPER::init();
-    my $funcs = $self->{'_ep_funcs'};
-    $funcs->{'ep-session'}        = { method => '_ep_session' };
-    $funcs->{'ep-session-store'}  = { method => '_ep_session_store' };
-    $funcs->{'ep-session-delete'} = { method => '_ep_session_delete' };
-    $funcs->{'ep-session-item'}    = { method => '_ep_session_item' };
-}
-
 sub _ep_session {
     my $self = shift; my $attr = shift;
 
@@ -81,7 +71,7 @@ sub _ep_session_store {
 
     my $id = $self->{'_ep_session_id'} || die "No session ID given";
     my $session = $self->{$self->{'_ep_session_var'}} || die "No session";
-    $session->store($self, $id);
+    $session->store($self, $id, $attr->{'locked'});
     '';
 }
 
@@ -180,19 +170,24 @@ sub open {
 }
 
 sub store {
-    my $self = shift;
-    my $data = delete $self->{'_ep_data'} || die "No _ep_data";
+    my($self, $ep, $id, $locked) = @_;
+    my $data = delete $self->{'_ep_data'}  or die "No _ep_data";
     my $table = $data->{'table'} || die "No table";
-    my $id = $data->{'id'};
     my $dbh = $data->{'dbh'};
     my $freezed_session = Storable::nfreeze($self);
     my $code = $data->{'code'};
     if ($code eq 'h') {
 	$freezed_session = unpack("H*", $freezed_session);
     }
-    $dbh->do("UPDATE $table SET LOCKED = 0, SESSION = ? WHERE ID = ?",
-	     undef, $code . $freezed_session, $id);
-    $data->{'locked'} = 0;
+    if ($locked) {
+	$dbh->do("UPDATE $table SET SESSION = ? WHERE ID = ?",
+		 undef, $code . $freezed_session, $id);
+	$self->{'_ep_data'} = $data;
+    } else {
+	$dbh->do("UPDATE $table SET LOCKED = 0, SESSION = ? WHERE ID = ?",
+		 undef, $code . $freezed_session, $id);
+	$data->{'locked'} = 0;
+    }
 }
 
 sub delete {
@@ -302,9 +297,12 @@ The default is off.
 
 =head2 Storing the session
 
-  <ep-session-store>
+  <ep-session-store locked=0>
 
-This stores the session back into the non-volatile storage.
+This stores the session back into the non-volatile storage. By default
+the session is unlocked at the same time and must not be modified in
+what follows, unless you set the optional I<locked> attribute to a
+true value.
 
 
 =head2 Managing a shopping cart
@@ -375,9 +373,11 @@ and the attribute hash ref \%attr.
 
 (Class method) This constructor must open an existing session.
 
-=item store($ep, $id)
+=item store($ep, $id, $locked)
 
-(Instance method) Stores the session.
+(Instance method) Stores the session. The B<$locked> argument advices
+to keep the session locked (TRUE) or unlocked (FALSE).
+
 =back
 
 Error handling in subclasses is simple: All you need to do is throwing

@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1106';
+$HTML::EP::VERSION = '0.1107';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -47,9 +47,8 @@ $HTML::EP::VERSION = '0.1106';
 			 default => 'statement' },
     'ep-list' =>       { method => '_ep_list',
 			 default => 'template' },
-    'ep-select' =>     { method => '_ep_list',
-                         default => 'template',
-			 'format' => '<SELECT NAME="$name$">$@output$</SELECT>' },
+    'ep-select' =>     { method => '_ep_select',
+                         default => 'template' },
     'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
 		         always => 1 },
@@ -747,9 +746,30 @@ sub _ep_query ($$;$) {
 end_of__ep_query
 
 
+_ep_select => <<'end_of__ep_select',
+sub _ep_select ($$;$) {
+    my $self = shift; my $attr = shift;
+    if (!exists($attr->{'template'})) {
+	return undef;
+    }
+    my @tags;
+    my($var, $val);
+    while (($var, $val) = each %$attr) {
+	if ($var !~ /^template|range|format|items?|selected(?:\-text)?$/i){
+	    push(@tags, sprintf('%s="%s"', $var,
+			        HTML::Entities::encode($val)));
+	}
+    }
+
+    $attr->{'format'} = '<SELECT ' . join(" ", @tags) . '>$@output$</SELECT>';
+    $self->_ep_list($attr);
+}
+end_of__ep_select
+
+
 _ep_list => <<'end_of__ep_list',
 sub _ep_list ($$;$) {
-    my $self = shift; my $attr = shift; my $func = shift;
+    my $self = shift; my $attr = shift;
     my $template;
     if (!defined($template = $attr->{template})) {
 	return undef;
@@ -769,18 +789,24 @@ sub _ep_list ($$;$) {
     my $ref;
     my $i = 0;
     my $selected = $attr->{'selected'};
+    my $isSelected;
     foreach $ref (@$list) {
 	$self->{$l} = $ref;
 	$self->{i} = $i++;
 	if ($selected) {
-	    $self->{'selected'} =
-		((ref($ref) ? $ref->{'val'} : $ref) eq $selected) ?
+	    if (ref($ref)  eq  'HASH') {
+		$isSelected = $ref->{'val'} eq $selected;
+	    } elsif (ref($ref) eq 'ARRAY') {
+		$isSelected = $ref->[0] eq $selected;
+	    } else {
+		$isSelected = $ref eq $selected;
+	    }
+	    $self->{'selected'} = $isSelected ?
 		($attr->{'selected-text'} || 'SELECTED') : '';
 	}
 	$output .= $self->ParseVars($template);
     }
-    my $format = ($attr->{'format'} || $func->{'format'});
-    if ($format) {
+    if (my $format = $attr->{'format'}) {
 	$attr->{'output'} = $output;
 	$format =~ s/\$([\@\#\~]?)(\w+)((\-\>\w+)*)\$/HTML::EP::ParseVar($attr, $1, $2, $3)/eg;
 	$format;

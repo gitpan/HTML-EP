@@ -1,3 +1,9 @@
+1998-09-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1107)
+
+	* EP.pm.in (_ep_select): Added handling of Non-EP attributes like
+	  onChange.
+	* lib/HTML/EP/Session.pm (store): Added 'locked' attribute.
+
 1998-09-12  Jochen Wiedmann  <joe@ispsoft.de> (0.1106)
 
 	* ep.pm.PL: Added startat and limit to ep-query.

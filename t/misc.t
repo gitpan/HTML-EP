@@ -228,7 +228,7 @@ _END_OF_HTML
 $parser = HTML::EP->new();
 $input = '<ep-select range="1..5" name="foo" selected=3 item=y>'
     . '<OPTION $selected$>$y$</ep-select>';
-$output= '<SELECT NAME="foo"><OPTION >1<OPTION >2<OPTION SELECTED>3<OPTION >4'
+$output= '<SELECT name="foo"><OPTION >1<OPTION >2<OPTION SELECTED>3<OPTION >4'
     . '<OPTION >5</SELECT>';
 Test2($parser->Run($input), $output, "Select lists.\n");
 
