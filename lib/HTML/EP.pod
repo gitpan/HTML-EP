@@ -673,7 +673,6 @@ by using
 If a file with the given name doesn't exist, the file name is treated as
 being relative to your WWW servers I<DOCUMENT_ROOT> directory.
 
-
 =item ep-exit
 
 This directive terminates processing of the current HTML page.
@@ -788,9 +787,9 @@ working with ep-perl.
 
 You always have an object $_, which is an instance of the HTML::EP
 class (a subclass of HTML::Parser). This object has certain attributes,
-in particular C<$_->{cgi}>, a CGI object and C<$_->{dbh}>, the DBI
+in particular C<$_-E<gt>{cgi}>, a CGI object and C<$_-E<gt>{dbh}>, the DBI
 handle. (Of course valid after C<ep-database> only.) If you want to set
-or modify a variable, you have to set C<$_->{varname}>. If you want to
+or modify a variable, you have to set C<$_-E<gt>{varname}>. If you want to
 retrieve the value, use the same. Note that you cannot use C<$_> for
 a long time, as it will be changed by Perl loops and the like, thus
 your Perl code typically starts with
@@ -810,7 +809,6 @@ If C<varname> is a structured variable, for example a hash or array ref,
 you may as well use
 
 	$varname->attrname$
-
 or
 
 	$varname->0$
@@ -890,46 +888,76 @@ name.
 The above method is already predefined by the HTML::EP::Locale module.
 
 
+=head2 Modifying the CGI headers
+
+The attribute $self->{'_ep_heaaders'} is containing arguments that you
+want to pass to CGI->header(). Use it like this:
+
+    <ep-perl>
+      $_->{'_ep_headers'} = { '-status' => '402 Payment required',
+			      '-expires' => '+3d'
+			     }
+    </ep-perl>
+
+
 =head2 Producing Non-HTML
 
 Say you want a CGI binary that creates a gif and not an HTML document.
 (See the C<ifgif.ep> file from the SNMP::Monitor distribution for an
-example.) This can be done in the following way:
-
-=over 8
-
-=item 1.)
-
-Create your own MIME header, for example like this:
+example.) Two problems are arising here: First of all you have to
+create your own headers. Next you *must* prevent that EP is emitting
+any output, because this might trash your images validity. Here's
+what to do:
 
     <ep-perl>
         my $self = $_;
-        $self->print("HTTP/1.0 200 OK\n",
-                     "content-type: image/gif\n"
-                     "\n");
+        my $cgi = $self->{'cgi'};
+        $self->_ep_database({'dsn' => 'DBI:mysql:test',
+			     'user' => 'joe',
+			     'password' => 'joe'});
+        $self->_ep_query({'statement' => "SELECT image FROM images WHERE"
+			      . " id = " . $cgi->param('id'),
+			  'result' => 'im',
+			  'resultype' => 'single_hash'});
+        $self->print($cgi->header('-type' => 'image/gif'),
+                     $self->{im}->{'image'});
+        $self->Stop();
     </ep-perl>
 
-=item 2.)
+Note the use of $self->Stop()!
 
-Do whatever you want to create your image, for example restore it
-from a database:
 
-    <ep-database dsn="DBI:mysql:test" user="joe" password="joe">
-    <ep-query statement="SELECT image FROM images WHERE id = 0"
-              result="im">
+=head2 NPH Scripts
+
+The Apache server and other WWW servers have a nice feature that allows
+you to return HTML pages line by line: If your script is called something like
+nph-myscript then the server is passing the scripts output to the browser
+immediately. This is usefull, for example, if you display the output of
+a traceroute command: You'd like to see any line immediately, but it may take
+some time untill the next line arrives.
+
+Unfortunately NPH scripts are not well suited for HTML::EP: One of EP's
+major targets is that you need not care for errors: They may occur at
+any point but are still catched and handled by creating an error message.
+However, there's no other way to guarantee this without buffering
+output until the script ends.
+
+If you really need to use NPH, do it like this:
+
     <ep-perl>
-        my $self = $_;
-        $self->print($self->{im}->{image});
+      my $self = $_;
+      local $| = 1; # make sure that Perl isn't buffering
+      $self->print($self->{'cgi'}->header('-type' => 'text/html',
+					  '-nph' => 1));
+      for (my $i = 0;  $i < 20;  $i++) {
+	$self->print("This is line $i. Waiting one second ...\n")
+	sleep 1;
+      }
+      $self->Stop();
     </ep-perl>
 
-=item 3.)
-
-Finally tell the EP module, that it must not produce any further output
-by doing a
-
-    <ep-perl>$_->Stop()</ep-perl>
-
-=back
+Note, that *no* more output will be produced by EP after calling
+$self->Stop()!
 
 
 =head1 DEBUGGING
@@ -966,6 +994,12 @@ can emulate a CGI environment as follows:
 
 This allows you single-stepping through your program, displaying variable
 values and the like.
+
+However, the debug variable is obviously a security problem. For that
+reason the I<debughosts> variable is present in HTML::EP::Config: You
+should set it to a regular expression matching the IP numbers of hosts
+that are allowed to enable debugging mode. The Makefile.PL should query
+for appropriate settings automatically while running.
 
 
 =head1 EXAMPLES

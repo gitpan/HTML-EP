@@ -2,7 +2,7 @@
 
 package Bundle::HTML::EP;
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 1;
 
@@ -18,7 +18,7 @@ C<perl -MCPAN -e 'install Bundle::HTML::EP'>
 
 =head1 CONTENTS
 
-DBI
+DBI 1.02
 
 Data::Dumper
 
@@ -28,15 +28,13 @@ Bundle::LWP
 
 Net::SMTP
 
-Mail::Internet 1.12
+Mail::Internet 1.32
 
 ExtUtils::PerlPP
 
-Text::CSV_XS
+Bundle::DBD::CSV
 
-SQL::Statement
-
-DBD::CSV
+HTML::EP
 
 =head1 DESCRIPTION
 

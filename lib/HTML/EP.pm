@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1117';
+$HTML::EP::VERSION = '0.1118';
 
 
 %HTML::EP::BUILTIN_FORMATS = (
@@ -88,10 +88,45 @@ sub WarnHandler {
 }
 
 
+sub SimpleError ($$$;$) {
+    my($self, $template, $errmsg, $admin) = @_;
+    my $r;
+    $r = $self->{'_ep_r'} if $self && ref($self);
+    $admin ||= ($r ? $r->cgi_var('SERVER_ADMIN') : $ENV{'SERVER_ADMIN'});
+    $admin = $admin ? "<A HREF=\"mailto:$admin\">Webmaster</A>" : 'Webmaster';
+    my $vars = { errmsg => $errmsg, admin => $admin };
+
+    if (!$template) {
+        $template = <<'END_OF_HTML';
+<HTML><HEAD><TITLE>Fatal internal error</TITLE></HEAD>
+<BODY><H1>Fatal internal error</H1>
+<P>An internal error occurred. The error message is:</P>
+<PRE>
+$errmsg$.
+</PRE>
+<P>Please contact the $admin$ and tell him URL, time and error message.</P>
+<P>We apologize for any inconvenience, please try again later.</P>
+<BR><BR><BR>
+<P>Yours sincerely</P>
+</BODY></HTML>
+END_OF_HTML
+    }
+
+    $template =~ s/\$(\w+)\$/$vars->{$1}/eg;
+    if ($r) {
+        $r->print($self->{'cgi'}->header('-type' => 'text/html'), $template);
+    } else {
+        print("content-type: text/html\n\n", $template);
+	exit 0;
+    }
+}
+
+
 sub new ($;$) {
     my($proto, $attr) = @_;
     my $self = $attr ? {%$attr} : {};
     $self->{'_ep_stack'} = [];
+    $self->{'_ep_headers'} ||= {};
     $self->{'_ep_cookies'} ||= {};
     $self->{'_ep_funcs'} ||= { %HTML::EP::BUILTIN_METHODS };
     $self->{'_ep_custom_formats'} ||= { %HTML::EP::BUILTIN_FORMATS };
@@ -431,6 +466,89 @@ sub Run ($;$) {
 	$self->eof();
     }
     $self->ParseVars($self->{_ep_output});
+}
+
+sub CgiRun ($$;$) {
+    my $self = shift;  my $path = shift;  my $r = shift;
+    my $cgi = $self->{'cgi'};
+    my $ok_templates = $HTML::EP::Config::CONFIGURATION->{'ok_templates'};
+    my $output = eval {
+        if ($ok_templates  &&  $path !~ /$ok_templates/) {
+	    die "Access to $path forbidden by ok_templates";
+	}
+	if ($self->{'debug'} = $cgi->param('debug')) {
+	    my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
+	    if ($debughosts) {
+	        if ($r) {
+		    if ((my $remoteip = $r->connection()->remote_ip())
+			!~ /$debughosts/  &&
+			(my $remotehost = $r->get_remote_host())
+			!~ /$debughosts/) {
+		        die "Debugging not permitted from $remoteip"
+			  . " ($remotehost), debug hosts = $debughosts";
+		    }
+		} else {
+		    if ((my $remoteip = $ENV{'REMOTE_ADDR'})
+			!~ /$debughosts/) {
+		        die "Debugging not permitted from $remoteip,"
+			  . " debug hosts = $debughosts";
+		    }
+		}
+	    }
+
+	    $| = 1;
+	    $self->print($cgi->header('-type' => 'text/plain'));
+	    $self->print("Entering debugging mode;",
+			 " list of input values:\n");
+	    foreach my $p ($cgi->param()) {
+	        $self->print(" $p = ", $cgi->param($p), "\n");
+	    }
+	}
+	$self->Run();
+    };
+
+    if ($@) {
+        if ($@ =~ /_ep_exit, ignore/) {
+	    $output = $self->{'_ep_output'};
+	} else {
+	    my $errmsg;
+	    my $errstr = $@;
+	    my $errfile = $self->{_ep_err_type} ?
+	        $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
+	    if ($errfile) {
+	        my $derrfile =
+		   $r ? $r->cgi_var('DOCUMENT_ROOT') : $ENV{'DOCUMENT_ROOT'};
+		if ($self->{'debug'}) {
+		    $self->print("Error type = " . $self->{_ep_err_type} .
+				 ", error file = $errfile" .
+				 ", derror file = $derrfile\n");
+		}
+		if (-f $derrfile) { $errfile = $derrfile }
+		eval {
+		    require Symbol;
+		    my $fh = Symbol::gensym();
+		    if (open($fh, "<$errfile")) {
+		        local($/) = undef;
+			$errmsg = <$fh>;
+			close($fh);
+		    }
+		};
+	    }
+	    if (!$errmsg) {
+	        $errmsg = $self->{_ep_err_type} ?
+		    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
+	    }
+	    return $self->SimpleError($errmsg, $errstr);
+	}
+    }
+
+    if (!$self->{_ep_stop}) {
+        my @cookies = values %{$self->{'_ep_cookies'}};
+	if (@cookies) {
+	    $self->{'_ep_headers'}->{'-cookie'} = \@cookies;
+	}
+        $self->print($cgi->header(%{$self->{'_ep_headers'}}), $output);
+    }
 }
 
 
@@ -1057,7 +1175,6 @@ sub _ep_include ($$;$) {
     $parser->{'env'}->{'PATH_TRANSLATED'} = (-f $f) ? $f :
 	($self->{'env'}->{'DOCUMENT_ROOT'} || '') . $f;
     my $output = eval { $parser->Run(); };
-    $self->{'_ep_cookies'} = $parser->{'_ep_cookies'};
     if ($@) {
 	if ($@ =~ /_ep_exit, ignore/) {
 	    $output = $parser->{'_ep_output'};

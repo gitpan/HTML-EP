@@ -64,7 +64,7 @@ my $ok = 1;
 $ok &&= CheckModule("Data::Dumper");
 $ok &&= CheckModule("Storable");
 $ok &&= CheckModule("LWP", undef, "libwww");
-$ok &&= CheckModule("Mail::Internet", 1.12, "MailTools");
+$ok &&= CheckModule("Mail::Internet", 1.32);
 
 if (!$ok) {
     print <<"MESSAGE";

@@ -1,3 +1,11 @@
+1998-12-03  Jochen Wiedmann  <joe@ispsoft.de> (0.1118)
+
+	* Added $self->{'_ep_headers'}. Request by Uri Bruck
+	  (bruck@actcom.co.il).
+	* Moved $self->{'_ep_cookies'} to $self->{'_ep_headers'}->{'-cookie'}.
+	* lib/HTML/EP.pm: Moved SimpleError and most of ep.cgi and Apache::EP
+	  to HTML::EP::SimpleError and HTML::EP::CgiRun.
+
 1998-11-29  Jochen Wiedmann  <joe@ispsoft.de> (0.1117)
 
 	* lib/HTML/EP.pm (new): Added $self->{'_ep_config'}.

@@ -41,38 +41,6 @@ $Apache::EP::VERSION = '0.1003';
 my $Is_Win32 = $^O eq "MSWin32";
 
 
-sub SimpleError ($$$;$) {
-    my($r, $template, $errmsg, $admin) = @_;
-    if ($admin  ||  ($admin = $r->cgi_var('SERVER_ADMIN'))) {
-        $admin = "<A HREF=\"mailto:$admin\">Webmaster</A>";
-    } else {
-        $admin = "Webmaster";
-    }
-
-    my $vars = { errmsg => $errmsg, admin => $admin };
-
-    if (!$template) {
-        $template = <<'END_OF_HTML';
-<HTML><HEAD><TITLE>Fatal internal error</TITLE></HEAD>
-<BODY><H1>Fatal internal error</H1>
-<P>An internal error occurred. The error message is:</P>
-<PRE>
-$errmsg$.
-</PRE>
-<P>Please contact the $admin$ and tell him URL, time and error message.</P>
-<P>We apologize for any inconvenience, please try again later.</P>
-<BR><BR><BR>
-<P>Yours sincerely</P>
-</BODY></HTML>
-END_OF_HTML
-    }
-
-    $template =~ s/\$(\w+)\$/$vars->{$1}/eg;
-    $r->send_http_header();
-    $r->print($template);
-}                                                                             
-
-
 sub handler ($$) {
     my($class, $r) = @_;
     if(ref $r) {
@@ -99,79 +67,12 @@ sub handler ($$) {
 
     $r->chdir_file($filename);
     $r->cgi_env('PATH_TRANSLATED' => $filename);
-    my $self = HTML::EP->new();
-    $self->{_ep_r} = $r;
-    if ($self->{cgi}->param('debug')) {
-	my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
-	my $c = $r->connection();
-	if (!$debughosts  ||  $c->remote_ip() =~ /$debughosts/) {
-	    $self->{'debug'} = 1;
-	} else {
-	    my $host = $r->get_remote_host();
-	    if ($host =~ /$debughosts/) {
-		$self->{'debug'} = 1;
-	    } else {
-		print STDERR "Debugging mode is restricted to $debughosts"
-		    . " and not permitted from " . $c->remote_ip();
-	    }
-	}
-    }
-    if ($self->{'debug'}) {
-	$r->content_type('text/plain');
-	$r->status(Apache::Constants::OK());
-	$r->send_http_header();
-    } else {
-	$r->content_type('text/html');
-	$r->status(Apache::Constants::OK());
-    }
-    $r->no_cache(1);
-    if ($self->{'debug'}) {
-	$r->print("Entering debugging mode; list of input values:\n");
-	my $p;
-	foreach $p ($self->{cgi}->param()) {
-	    $self->print(" $p = ", $self->{cgi}->param($p), "\n");
-	}
-	$self->{debug} = 1;                                 
-    }
     local $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
-    my $output = eval { $self->Run(); };
-    if ($@) {
-	if ($@ =~ /_ep_exit, ignore/) {
-	    $output = $self->{'_ep_output'};
-	} else {
-	    my $errstr = $@;
-	    my $errfile = $self->{_ep_err_type} ?
-		$self->{_ep_err_file_user} : $self->{_ep_err_file_system};
-	    my $errmsg;
-	    my $derrfile = $self->{'env'}->{'DOCUMENT_ROOT'} . $errfile;
-	    if (-f $derrfile) { $errfile = $derrfile }
-	    if ($errfile) {
-		eval {
-		    my $fh = Symbol::gensym();
-		    if (open($fh, "<$errfile")) {
-			local($/) = undef;
-			$errmsg = <$fh>;
-			close($fh);
-		    }
-		};
-	    }
-	    if (!$errmsg) {
-		$errmsg = $self->{_ep_err_type} ?
-		    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
-	    }
-	    SimpleError($r, $errmsg, $errstr);                     
-	    return $r->status;
-	}
-    }
-    if (!$self->{_ep_stop}) {
-	foreach my $cookie (values %{$self->{'_ep_cookies'}}) {
-	    $r->header_out('Set-Cookie', $cookie);
-	}
-	$r->send_http_header();
-	$r->print($output);
-    }
-
-    return $r->status;
+    my $self = HTML::EP->new();
+    $self->{'_ep_r'} = $r;
+    $r->no_cache(1);
+    $self->CgiRun($filename, $r);
+    return Apache::Constants::OK();
 }
 
 
