@@ -1,3 +1,8 @@
+1999-11-08  Jochen Wiedmann  <joe@ispsoft.de> (0.2004)
+
+	* lib/HTML/EP.pm (EncodeByAttr): Fixed a bug in HTML output
+	  ("= ~" instead of "=~")
+
 1999-09-28  Jochen Wiedmann  <joe@ispsoft.de> (0.20_02)
 
 	* Added hints for installation with IIS.

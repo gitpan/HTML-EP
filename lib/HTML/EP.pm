@@ -41,7 +41,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2003';
+$HTML::EP::VERSION = '0.2004';
 
 
 sub new {
@@ -517,7 +517,7 @@ sub EncodeByAttr {
     my($self, $attr, $str) = @_;
     if (my $type = $attr->{'output'}) {
 	if ($type eq 'html') {
-	    $str = ~ s/([<&>"\$])/HTML::Entities::char2entity{$1}/g;
+	    $str =~ s/([<&>"\$])/HTML::Entities::char2entity{$1}/g;
 	} elsif ($type eq 'url') {
 	    $str = CGI->escape($str);
 	}
