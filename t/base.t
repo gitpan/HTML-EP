@@ -7,7 +7,7 @@ sub HaveModule ($) {
     !$@;
 }
 
-print "1..8\n";
+print "1..9\n";
 
 if (!HaveModule("HTML::EP")) { print "$@\nnot "; }
 print "ok 1\n";
@@ -45,3 +45,9 @@ if (!HaveModule("HTML::EP::Examples::Glimpse")) {
 } else {
     print "ok 8\n";
 }
+if (!HaveModule("HTML::EP::Examples::POP3Client")) {
+    print "$@\nnot ok 9\n";
+} else {
+    print "ok 9\n";
+}
+
