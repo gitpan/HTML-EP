@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1133';
+$HTML::EP::VERSION = '0.1134';
 
 
 %HTML::EP::BUILTIN_METHODS = (
