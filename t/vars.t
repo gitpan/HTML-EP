@@ -3,7 +3,7 @@
 use strict;
 
 
-print "1..19\n";
+print "1..20\n";
 
 require HTML::EP::Locale;
 
@@ -49,6 +49,7 @@ $self->{'t_array_ref'} = [ 1, 1.5, 'i' ];
 $self->{'dbh'} = $dbh;
 $self->{'empty'} = '';
 $self->{'sum'} = 1234567.89;
+$self->{'path'} = "file:/mosaic/..";
 
 Test2($self->ParseVars('$a$'), '1', "Simple strings (HTML encoded)\n");
 Test2($self->ParseVars('$%a$'), '1', "Simple strings (HTML encoded)\n");
@@ -66,7 +67,7 @@ Test2($self->ParseVars('$%b$'), 'Obelix GmbH &amp; Co KG',
      "HTML strings (HTML encoded)\n");
 Test2($self->ParseVars('$@b$'), 'Obelix GmbH & Co KG',
     "HTML strings (Raw)\n");
-Test2($self->ParseVars('$#b$'), 'Obelix%20GmbH%20&%20Co%20KG',
+Test2($self->ParseVars('$#b$'), 'Obelix%20GmbH%20%26%20Co%20KG',
      "HTML strings (URL encoded)\n");
 if (!$dbh) {
     SkipTest();
@@ -91,3 +92,6 @@ Test2($self->ParseVars('$@_ep_language$'),
       "Default language\n");
 Test2($self->ParseVars('$&DM->sum$'), '1 234 567,89 DM',
                        "Custom format: DM\n");
+Test2($self->ParseVars('$#path$'), 'file%3A%2Fmosaic%2F%2E%2E');
+
+

@@ -1,3 +1,14 @@
+1999-08-27  Jochen Wiedmann  <joe@ispsoft.de> (0.1133)
+
+	* lib/HTML/EP/Session.pm: Added support for multiple sessions.
+	* lib/HTML/EP/Session.pm (_ep_session_delete): Renamed subclass
+	  methods delete, open and store to Delete, Open and Store, in
+	  order to avoid confusion with Perl's builtin functions of the
+	  same names.
+	* lib/HTML/EP.pm (ParseVar): Forcing uri_escape to escape anything
+	  besides \w. Seems some browsers have problems with
+	  certain other characters.
+
 1999-08-23  Jochen Wiedmann  <joe@ispsoft.de> (0.1132)
 
 	* Added HTML::EP::Install.

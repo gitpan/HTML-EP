@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.11321';
+$HTML::EP::VERSION = '0.1133';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -185,7 +185,7 @@ sub ParseVar ($$$$) {
     if (!$type  ||  $type eq '%') {
 	$var =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
     } elsif ($type eq '#') {
-	$var = URI::Escape::uri_escape($var, "^a-zA-Z0-9");
+	$var = URI::Escape::uri_escape($var, '\W');
     } elsif ($type eq '~') {
 	if (!$self->{dbh}) { die "Not connected"; }
 	$var = $self->{dbh}->quote($var);
@@ -820,7 +820,7 @@ sub _ep_perl ($$;$) {
 	if ($type eq 'html') {
 	    $output =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
 	} elsif ($type eq 'url') {
-	    $output = URI::Escape::uri_escape($output, "^a-zA-Z0-9");
+	    $output = URI::Escape::uri_escape($output, '\W');
 	}
     }
     $output;

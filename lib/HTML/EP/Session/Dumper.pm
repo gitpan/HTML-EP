@@ -24,18 +24,18 @@ use strict;
 use Data::Dumper ();
 use Safe ();
 use Fcntl ();
+use Symbol ();
 
 
 package HTML::EP::Session::Dumper;
 
 sub new {
     my($proto, $ep, $id, $attr) = @_;
-    my $class = (ref($proto) || $proto);
     my $session = { '_ep_data' => { 'fh' => $attr->{'fh'} } };
-    bless($session, $class);
+    bless($session, (ref($proto) || $proto));
 }
 
-sub open {
+sub Open {
     my($proto, $ep, $id, $attr) = @_;
     my $fh = Symbol::gensym();
     sysopen($fh, $id, Fcntl::O_RDWR()|Fcntl::O_CREAT())
@@ -45,24 +45,20 @@ sub open {
     local $/ = undef;
     my $contents = <$fh>;
     die "Failed to read $id: $!" unless defined $contents;
-    my $cpt = Safe->new();
-    my $self = $cpt->reval($contents);
-    my $class = (ref($proto) || $proto);
+    my $self = Safe->new()->reval($contents);
     die "Failed to eval $id: $@" if $@;
     die "Empty or trashed $id: Returned a false value" unless $self;
-    die "Trashed $id: Expected instance of $class, got $self"
-	unless ref($self) eq $class;
-    $self;
+    $self->{'_ep_data'} = { 'fh' => $fh };
+    bless($self, (ref($proto) || $proto));
 }
 
-sub store {
+sub Store {
     my($self, $ep, $id, $locked) = @_;
     my $data = delete $self->{'_ep_data'};
     my $fh = $data->{'fh'};
-    my $dump = Data::Dumper->new([$self], ["session"]);
-    $dump->Indent(1);
-    (seek($fh, 0, 0)  and  (print $fh $dump->Dump())
-     and  truncate($fh, 0))
+    (seek($fh, 0, 0)  and
+     (print $fh (Data::Dumper->new([$self])->Indent(1)->Terse(1)->Dump()))  and
+     truncate($fh, 0))
 	or die "Failed to update $id: $!";
     if ($locked) {
 	$self->{'_ep_data'} = $data;
@@ -70,8 +66,8 @@ sub store {
 }
 
 
-sub delete {
-    my($self, $id) = @_;
+sub Delete {
+    my($self, $ep, $id) = @_;
     if (-f $id) {
 	unlink $id or die "Failed to delete $id: $!";
     };
@@ -79,3 +75,4 @@ sub delete {
 
 
 1;
+

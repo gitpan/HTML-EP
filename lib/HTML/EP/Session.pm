@@ -54,7 +54,7 @@ sub _ep_session {
 	}
 	if (!$session) { die $@ }
     } else {
-	$session = $class->open($self, $id, $attr);
+	$session = $class->Open($self, $id, $attr);
     }
 
     $self->{'_ep_session_id'} = $id;
@@ -72,22 +72,27 @@ sub _ep_session {
 sub _ep_session_store {
     my $self = shift; my $attr = shift;
 
-    my $id = $self->{'_ep_session_id'} || die "No session ID given";
-    my $session = $self->{$self->{'_ep_session_var'}} || die "No session";
+    my $id = ($attr->{'id'} || $self->{'_ep_session_id'})
+	or die "No session ID given";
+    my $var = $attr->{'var'} || $self->{'_ep_session_var'};
+    my $session = $self->{$var}	or die "No such session: $var";
     if ($self->{'debug'}) {
 	require Data::Dumper;
-	$self->print("Storing session: ", Data::Dumper::Dumper($session),
+	$self->print("Storing session: ",
+		     Data::Dumper->new([$session], [$var])->Indent(1)->Dump(),
 		     "\n");
     }
-    $session->store($self, $id, $attr->{'locked'});
+    $session->Store($self, $id, $attr->{'locked'});
     '';
 }
 
 sub _ep_session_item {
     my $self = shift; my $attr = shift;
 
-    my $id = $self->{'_ep_session_id'} || die "No session ID given";
-    my $session = $self->{$self->{'_ep_session_var'}} || die "No session";
+    my $id = ($attr->{'id'} || $self->{'_ep_session_id'})
+	or die "No session ID given";
+    my $var = $attr->{'var'} || $self->{'_ep_session_var'};
+    my $session = $self->{$var}	or die "No such session: $var";
     my $items = $session->{'items'};
     if (!$items) {
 	$items = $session->{'items'} = {};
@@ -106,10 +111,12 @@ sub _ep_session_item {
 sub _ep_session_delete {
     my $self = shift; my $attr = shift;
 
-    my $id = $self->{'_ep_session_id'} || die "No session ID given";
-    my $session = $self->{$self->{'_ep_session_var'}} || die "No session";
-    $session->delete($id);
-    undef $self->{'_ep_session_id'};
+    my $id = ($attr->{'id'} || $self->{'_ep_session_id'})
+	or die "No session ID given";
+    my $var = $attr->{'var'} || $self->{'_ep_session_var'};
+    my $session = $self->{$var}	or die "No such session: $var";
+    $session->Delete($self, $id);
+    undef $self->{'_ep_session_id'} unless $attr->{'id'};
     '';
 }
 
@@ -138,7 +145,7 @@ __END__
     my $items = $cart->{'items'} || {};
     my $cgi = $self->{'cgi'};
     $items->{$cgi->param('item_id')} = $cgi->param('num_items');
-  <ep-store
+  </ep-perl>
 
   <ep-comment>
     Same thing by using the ep-item command
@@ -194,6 +201,16 @@ that is overridable with the I<var> attribute.
 Some storage systems don't support NUL bytes. The I<hex> attribute
 forces conversion of session strings into hex strings, if set to on.
 The default is off.
+
+Some session classes, in particular the DBI session class, will
+generate an ID for you, if required. That ID can by retrieved
+by looking at
+
+	$self->{'_ep_session_id'}
+
+or, within an HTML page with
+
+	$_ep_session_id$
 
 
 =head2 Storing the session
@@ -270,14 +287,16 @@ Subclasses of HTML::EP::Session must implement the following methods:
 The constructor should configure itself by using the EP object B<$ep>
 and the attribute hash ref \%attr.
 
-=item open($ep, $id, \%attr)
+=item Open($ep, $id, \%attr)
 
 (Class method) This constructor must open an existing session.
 
-=item store($ep, $id, $locked)
+=item Store($ep, $id, $locked)
 
 (Instance method) Stores the session. The B<$locked> argument advices
 to keep the session locked (TRUE) or unlocked (FALSE).
+
+=item Delete($ep, $id)
 
 =back
 
@@ -339,6 +358,51 @@ bytes. If your session is getting too large, you might try to reduce
 the cookie size by using the Compress::Zlib and/or MIME::Base64
 module. This is enabled by adding the parameters I<zlib=1> and/or
 I<base64=1>.
+
+
+=head2 The Dumper subclass
+
+This is, in some sense, an unusual class for sessions: All users
+are sharing a single session, unlike the DBI and Cookie subclasses,
+which implement one session per user. I enjoy using the Dumper
+subclass anyways, for example to implement site wide preferences.
+
+What the class does is creating a file which holds a single
+hash ref. This hash ref is created using the I<Data::Dumper>
+package. L<Data::Dumper(3)>.
+
+You create a Dumper session like this:
+
+  <ep-session class="HTML::EP::Session::Dumper"
+	      id="/var/tmp/my.session" var="prefs">
+
+In other words, the session ID is just the name of the file.
+
+
+=head1 MULTIPLE SESSION
+
+When looking at the Cookie and Dumper subclass, the question arises:
+Can I use multiple sessions within a single HTML page? Of course you
+can!
+
+However, there are a few drawbacks:
+
+=over 8
+
+=item 1.)
+
+The variable $_ep_session_id$ always contains the ID of the
+I<last> created session. After you have created the first
+session, it will contains this sessions ID. If you create
+another session, the variable will change to the new ID.
+
+=item 2.)
+
+You I<must> use the attributes B<var=something> and B<id=something>
+with any call to I<ep-session>, I<ep-session-store>, I<ep-session-delete>
+and I<ep-session-item>.
+
+=back
 
 
 =head1 AUTHOR AND COPYRIGHT

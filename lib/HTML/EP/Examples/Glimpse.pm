@@ -258,7 +258,7 @@ sub _ep_html_ep_examples_glimpse_search {
     # Now for the hard part: Split the search string into words
     my $search = $cgi->param('search');
     $self->{'link_opts'} = $self->{'env'}->{'PATH_INFO'} . "?"
-        . join("&", "search=" . URI::Escape::uri_escape($search),
+        . join("&", "search=" . URI::Escape::uri_escape($search, '\W'),
                "max=$max", "opt_case_sensitive=$case_sensitive",
                "word_boundary=$word_boundary", "opt_whole_file=$whole_file",
                "opt_regex=$opt_regex", "opt_or=$opt_or");

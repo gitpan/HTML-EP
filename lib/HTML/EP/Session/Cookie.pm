@@ -81,7 +81,7 @@ sub new {
     $session;
 }
 
-sub open {
+sub Open {
     my($proto, $ep, $id, $attr) = @_;
     my $cgi = $ep->{'cgi'};
     my $cookie = $cgi->cookie('-name' => $id);
@@ -106,7 +106,7 @@ sub open {
     $session;
 }
 
-sub store {
+sub Store {
     my($self, $ep, $id, $locked) = @_;
     my $data = delete $self->{'_ep_data'};
     my $freezed_session = $self->encode($self, $data);
@@ -123,8 +123,8 @@ sub store {
 }
 
 
-sub delete {
-    my($self, $id) = @_;
+sub Delete {
+    my($self, $ep, $id) = @_;
     my $data = delete $self->{'_ep_data'};
     my $cookie = CGI::Cookie->new('-name' => $id,
 				  '-expires' => '-1m',

@@ -54,7 +54,7 @@ sub new {
     $session;
 }
 
-sub open {
+sub Open {
     my($proto, $ep, $id, $attr) = @_;
     my $class = (ref($proto) || $proto);
     my $table = $attr->{'table'} || 'sessions';
@@ -88,7 +88,7 @@ sub open {
     $session;
 }
 
-sub store {
+sub Store {
     my($self, $ep, $id, $locked) = @_;
     my $data = delete $self->{'_ep_data'}  or die "No _ep_data";
     my $table = $data->{'table'} || die "No table";
@@ -110,8 +110,8 @@ sub store {
     }
 }
 
-sub delete {
-    my $self = shift;  my $id = shift;
+sub Delete {
+    my $self = shift;  my $ep = shift;  my $id = shift;
     my $data = (delete $self->{'_ep_data'}) || die "No _ep_data";
     my $table = $data->{'table'} || die "No table";
     my $dbh = $data->{'dbh'};

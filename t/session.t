@@ -215,29 +215,30 @@ Test($cookie->expires);
 
 
 print "Testing HTML::EP::Session::Dumper.\n";
+unlink "testfile";
 $parser = HTML::EP->new();
 $input = q{
 <ep-package name="HTML::EP::Session">
-<ep-session id="test" class="HTML::EP::Session::Dumper">
+<ep-session id="testfile" class="HTML::EP::Session::Dumper">
 <ep-session-item item="foo" num=5>
 <ep-session-store>
 };
 Test2($parser->Run($input), qq{\n\n\n\n\n}, "Creating a dumper session\n");
-Test(-f "test");
-$session = do "test";
+Test(-f "testfile");
+$session = do "testfile";
 Test($session and ref($session) eq "HTML::EP::Session::Dumper");
 Test($session->{'items'}->{'foo'} == 5);
 $parser = HTML::EP->new();
 $input = q{
 <ep-package name="HTML::EP::Session">
-<ep-session id="test" class="HTML::EP::Session::Dumper">
+<ep-session id="testfile" class="HTML::EP::Session::Dumper">
 <ep-session-delete>
 };
 Test2($parser->Run($input), qq{\n\n\n\n});
-Test(! -f "test");
+Test(! -f "testfile");
 
 
 exit 0;
 
-END { unlink 'sessions', 'test' };
+END { unlink 'sessions', 'testfile' };
 
