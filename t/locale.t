@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: locale.t,v 1.1 1999/02/07 20:02:38 joe Exp $
+# $Id: locale.t,v 1.2 1999/08/13 13:17:20 joe Exp $
 #
 
 use strict;
@@ -40,48 +40,56 @@ sub Test2($$;@) {
 
 $ENV{'REQUEST_METHOD'} = 'GET';
 $ENV{'QUERY_STRING'} = $opt_debug ? 'debug=1' : '';
+delete $ENV{'HTTP_ACCEPT_LANGUAGE'};
 
 
-my $input = '<ep-package name="HTML::EP::Locale">'
+my $input = '<ep-package name="HTML::EP::Locale" accept-language="de,en">'
     . '<ep-language de="Deutsch" en="English">';
 my $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
 Test2($parser->Run($input), "Deutsch", "Single-line Localization.\n");
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
+$input = '<ep-package name="HTML::EP::Locale" accept-language="en,de">'
+    . '<ep-language de="Deutsch" en="English">';
 Test2($parser->Run($input), "English", "Single-line Localization.\n");
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
+$input = '<ep-package name="HTML::EP::Locale" accept-language="fr,no">'
+    . '<ep-language de="Deutsch" en="English">';
 Test2($parser->Run($input), "", "Single-line Localization.\n");
 
-$input = '<ep-package name="HTML::EP::Locale">'
+$input = '<ep-package name="HTML::EP::Locale" accept-language="de,en">'
     . '<ep-language language=de>Deutsch</ep-language>'
     . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
 Test2($parser->Run($input), "Deutsch", "Multi-line Localization.\n");
 
+$input = '<ep-package name="HTML::EP::Locale" accept-language="en,de">'
+    . '<ep-language language=de>Deutsch</ep-language>'
+    . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
 Test2($parser->Run($input), "English", "Multi-line Localization.\n");
 
+$input = '<ep-package name="HTML::EP::Locale" accept-language="fr,no">'
+    . '<ep-language language=de>Deutsch</ep-language>'
+    . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
 Test2($parser->Run($input), "", "Multi-line Localization.\n");
 
-$input = '<ep-package name="HTML::EP::Locale">'
+$input = '<ep-package name="HTML::EP::Locale" accept-language="de,en">'
     . '<ep-language language=de>Deutsch'
     . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
 Test2($parser->Run($input), "Deutsch", "Multi-line Localization.\n");
 
+$input = '<ep-package name="HTML::EP::Locale" accept-language="en,de">'
+    . '<ep-language language=de>Deutsch'
+    . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
 Test2($parser->Run($input), "English", "Multi-line Localization.\n");
 
+$input = '<ep-package name="HTML::EP::Locale" accept-language="fr,no">'
+    . '<ep-language language=de>Deutsch'
+    . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new({'debug' => $opt_debug});
-$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
 Test2($parser->Run($input), "", "Multi-line Localization.\n");
 
 
@@ -107,17 +115,15 @@ $output = '1 234 567,50 DM and 273 682,00 DM';
 $parser = HTML::EP->new();
 $parser->{'a'} = 1234567.5;
 $parser->{'b'} = 273682;
-$parser->{'env'} = { 'PATH_TRANSLATED' => '' };
 Test2($parser->Run($input), $output, "Locale's custom formatting\n");
 
 
-$input = '<ep-package name="HTML::EP::Locale">$&TIME->date$';
+$input = '<ep-package name="HTML::EP::Locale" accept-language="de,en">$&TIME->date$';
 $parser = HTML::EP->new();
 $parser->{'date'} = 'Sun, 7 Feb 1999 18:17:57 +0100';
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
 Test2($parser->Run($input),
       "Sonntag, den 7. Februar 1999, 18:17:57 Uhr (+0100)");
+$input = '<ep-package name="HTML::EP::Locale" accept-language="en,de">$&TIME->date$';
 $parser = HTML::EP->new();
 $parser->{'date'} = 'Sun, 7 Feb 1999 18:17:57 +0100';
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
 Test2($parser->Run($input), 'Sun, 7 Feb 1999 18:17:57 +0100');

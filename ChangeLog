@@ -1,3 +1,23 @@
+1999-08-23  Jochen Wiedmann  <joe@ispsoft.de> (0.1132)
+
+	* Added HTML::EP::Install.
+	* lib/HTML/EP/Session/DBI.pm: Moved DBI session to an external file.
+	* Added HTML::EP::Session::DBIq. Suggested by Ilya Ketris
+	  <ilya@gde.to>.
+	* Added HTML::EP::Session::Dumper.
+
+1999-08-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1131)
+
+	* lib/HTML/EP.pm (_ep_debug): Allowed empty $ENV{REMOTE_ADDR}
+	  for debugging for debugging from the shell.
+	* lib/HTML/EP.pm (_ep_elseif): Fixed error message for ep-elseif
+	  without ep-if.
+	* lib/HTML/EP/Session.pm: Fixed a bug in the docs of Cookie
+	  sessions. ("name" was requested for the cookie name instead
+	  of "id".)
+	* lib/HTML/EP/EP.pm: Added $self->SetCookies(), which is used
+	  in _ep_redirect.
+
 1999-05-05  Jochen Wiedmann  <joe@ispsoft.de> (0.1130)
 
 	* lib/HTML/EP.pm: Added '$' to the set of encoded

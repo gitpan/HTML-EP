@@ -3,13 +3,14 @@
 use strict;
 
 
-require HTML::EP;
+use HTML::EP ();
+
 
 if (!eval { require DBD::CSV; require DBI; require Storable; require MD5 }) {
     print "1..0\n";
     exit 0;
 }
-print "1..49\n";
+print "1..55\n";
 
 my $numTests = 0;
 sub Test($;@) {
@@ -213,7 +214,30 @@ Test($cookie->value);
 Test($cookie->expires);
 
 
+print "Testing HTML::EP::Session::Dumper.\n";
+$parser = HTML::EP->new();
+$input = q{
+<ep-package name="HTML::EP::Session">
+<ep-session id="test" class="HTML::EP::Session::Dumper">
+<ep-session-item item="foo" num=5>
+<ep-session-store>
+};
+Test2($parser->Run($input), qq{\n\n\n\n\n}, "Creating a dumper session\n");
+Test(-f "test");
+$session = do "test";
+Test($session and ref($session) eq "HTML::EP::Session::Dumper");
+Test($session->{'items'}->{'foo'} == 5);
+$parser = HTML::EP->new();
+$input = q{
+<ep-package name="HTML::EP::Session">
+<ep-session id="test" class="HTML::EP::Session::Dumper">
+<ep-session-delete>
+};
+Test2($parser->Run($input), qq{\n\n\n\n});
+Test(! -f "test");
+
+
 exit 0;
 
-END { if (-f 'sessions') { unlink 'sessions' }}
+END { unlink 'sessions', 'test' };
 

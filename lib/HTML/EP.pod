@@ -767,22 +767,31 @@ Available conditions are eq and ne.
 Localization is available via the HTML::EP::Locale module. Currently
 it only offers methods for localizing strings.
 
-To access the module, start your HTML page with
+To access the module, let's assume you prefer your visitors reading
+the german (de) version of your page, but it is also available in
+english (en). Then start your HTML page with
 
-    <ep-package name="HTML::EP::Locale">
+    <ep-package name="HTML::EP::Locale" accept-language="de,en">
+
 
 When the package is loaded, it tries to guess your documents language.
-The default language is I<de> (german; I ought to make this configurable).
-You can specify another language (for example I<en> for english or
-I<fr> for french) by either supplying a CGI variable C<language=xy>
-or giving your document a secondary extension like C<page.xy.ep>.
-That is, if your document is called
+The default language is I<de> (german) or whatever you choose when
+installing the package. Another language can be specified by
 
-    mypage.de.ep
+=over 8
 
-then the language I<de> will be choosen, but I<de> will be choosen for
+=item *
 
-    mypage.en.ep
+By setting the CGI variable I<language>, for example by making
+a link to F<mypage.ep?language=en>.
+
+=item *
+
+By setting the environment variable I<HTTP_ACCEPT_LANGUAGE>; most
+browsers do this for you. For example with Netscape, this variable
+is configurable via Edit/Preferences/Navigator/Languages.
+
+=back
 
 Two possibilities are available for localizing strings. For short strings
 like titles, headers or Link refs you might prefer this version:

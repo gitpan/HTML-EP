@@ -23,7 +23,7 @@ require 5.004;
 use strict;
 
 
-require CGI::Cookie;
+use CGI::Cookie ();
 
 
 package HTML::EP::Session::Cookie;
@@ -110,19 +110,21 @@ sub store {
     my($self, $ep, $id, $locked) = @_;
     my $data = delete $self->{'_ep_data'};
     my $freezed_session = $self->encode($self, $data);
-    delete $data->{'zlib'};
-    delete $data->{'base64'};
+    my $zlib = delete $data->{'zlib'};
+    my $base64 = delete $data->{'base64'};
     my $cookie = CGI::Cookie->new(%$data,
 				  '-value' => $freezed_session);
     $ep->{'_ep_cookies'}->{$id} = $cookie;
     if ($locked) {
+	$data->{'zlib'} = $zlib if defined $zlib;
+	$data->{'base64'} = $base64 if defined $base64;
 	$self->{'_ep_data'} = $data;
     }
 }
 
 
 sub delete {
-    my($self, $ep, $id, $locked) = @_;
+    my($self, $id) = @_;
     my $data = delete $self->{'_ep_data'};
     my $cookie = CGI::Cookie->new('-name' => $id,
 				  '-expires' => '-1m',

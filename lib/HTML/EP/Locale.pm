@@ -30,13 +30,40 @@ package HTML::EP::Locale;
 @HTML::EP::Locale::ISA = qw(HTML::EP);
 
 
-sub init ($) {
-    my $self = shift;
-    return if $self->{'_ep_language'};
+sub init ($$) {
+    my $self = shift; my $attr = shift;
+    return $self->{'_ep_language'} if $self->{'_ep_language'};
     $self->SUPER::init();
-    $self->{_ep_language} = $self->{cgi}->param('language')  ||
-	(($self->{env}->{PATH_TRANSLATED} =~ /\.(\w+)\.\w+$/) ?
-	 $1 : $self->{'_ep_config'}->{'default_language'});
+
+    # Try to guess a language. First try to guess what languages are
+    # offered.
+    my @offered;
+    if ($attr->{'accept-language'}) {
+	@offered = split(/,/, $attr->{'accept-language'});
+    }
+   @offered = ($self->{'_ep_config'}->{'default_language'}, "en")
+       unless @offered;
+
+    # Next, try to guess what the user wants. First let's see, if there
+    # is a CGI variable 'language'.
+    my $get;
+    if (my $lang = $self->{'cgi'}->param('language')) {
+	foreach my $l (@offered) {
+	    return ($self->{'_ep_language'} = $l) if $l eq $lang;
+	}
+    }
+    # If there's no such CGI variable, look at the value of
+    # $ENV{'HTTP_ACCEPT_LANGUAGE'}.
+    if (exists($ENV{'HTTP_ACCEPT_LANGUAGE'})) {
+	foreach my $lang (split(/\s*,\s*/,
+				($ENV{'HTTP_ACCEPT_LANGUAGE'} || ''))) {
+	    foreach my $l (@offered) {
+		return ($self->{'_ep_language'} = $l) if $l eq $lang;
+	    }
+	}
+    }
+    # If anything else fails, choose a default language
+    return $self->{'_ep_language'} = $offered[0];
 }
 
 

@@ -24,21 +24,17 @@ Data::Dumper
 
 Storable
 
+URI::Escape
+
+CGI::Cookie
+
 Bundle::LWP
 
 Net::SMTP
 
 Mail::Internet 1.32
 
-ExtUtils::PerlPP
-
-Bundle::DBD::CSV
-
 HTML::EP
-
-URI::Escape
-
-CGI::Cookie
 
 =head1 DESCRIPTION
 

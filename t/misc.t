@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: misc.t,v 1.4 1999/02/07 20:02:38 joe Exp $
+# $Id: misc.t,v 1.1.1.1 1999/08/13 12:15:32 joe Exp $
 #
 
 use strict;

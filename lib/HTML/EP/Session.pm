@@ -28,18 +28,16 @@ require Storable;
 
 package HTML::EP::Session;
 
-$HTML::EP::Session::VERSION = '0.1001';
+$HTML::EP::Session::VERSION = '0.1002';
 @HTML::EP::Session::ISA = qw(HTML::EP);
 
 sub _ep_session {
     my $self = shift; my $attr = shift;
 
     my $class = $attr->{'class'} || 'HTML::EP::Session::DBI';
-    if ($class ne 'HTML::EP::Session::DBI') { # Builtin
-	my $c = $class . '.pm';
-	$c =~ s/\:\:/\//g;
-	if (!$INC{$c}) { require $c }
-    }
+    my $c = $class . '.pm';
+    $c =~ s/\:\:/\//g;
+    require $c;
 
     $self->{'_ep_session_code'} = $attr->{'hex'} ? 'h' : 's';
 
@@ -113,120 +111,6 @@ sub _ep_session_delete {
     $session->delete($id);
     undef $self->{'_ep_session_id'};
     '';
-}
-
-
-package HTML::EP::Session::DBI;
-
-sub new {
-    my($proto, $ep, $id, $attr) = @_;
-    my $class = (ref($proto) || $proto);
-    my $table = $attr->{'table'} || 'sessions';
-    my $dbh = $ep->{'dbh'} || die "Missing DBI dbh";
-    my $session = {};
-    bless($session, $class);
-    my $code = $ep->{'_ep_session_code'};
-    my $freezed_session = Storable::nfreeze($session);
-    if ($code eq 'h') {
-	$freezed_session = unpack("H*", $freezed_session);
-    }
-    if ($ep->{'debug'}) {
-	$ep->printf("Inserting id %s, session %s\n",
-		    $id, unpack("H*", $code . $freezed_session));
-    }
-    my $sth = $dbh->prepare("INSERT INTO $table (ID, SESSION, LOCKED)"
-			    . " VALUES (?, ?, 1)");
-    $sth->bind_param(1, $id, DBI::SQL_CHAR());
-    $sth->bind_param(2, $code . $freezed_session, DBI::SQL_LONGVARBINARY());
-    $sth->execute();
-    $sth->finish();
-    $session->{'_ep_data'} = { 'dbh' => $dbh,
-			       'table' => $table,
-			       'locked' => 1,
-			       'id' => $id,
-			       'code' => $code };
-    $session;
-}
-
-sub open {
-    my($proto, $ep, $id, $attr) = @_;
-    my $class = (ref($proto) || $proto);
-    my $table = $attr->{'table'} || 'sessions';
-    my $dbh = $ep->{'dbh'} || die "Missing DBI dbh";
-    $dbh->do("UPDATE $table SET LOCKED = 1 WHERE ID = ? AND LOCKED = 0",
-	     undef, $id);
-    my $sth = $dbh->prepare("SELECT SESSION FROM $table WHERE ID = ?");
-    $sth->execute($id);
-    my $ref = $sth->fetchrow_arrayref();
-    my $freezed_session = $ref->[0];
-    if ($ep->{'debug'}) {
-	$ep->printf("HTML::EP::Session::DBI: freezed session %s\n",
-		    unpack("H*", $freezed_session));
-    }
-    my $code = substr($freezed_session, 0, 1);
-    $freezed_session = substr($freezed_session, 1);
-    if ($code eq 'h') {
-	$freezed_session = pack("H*", $freezed_session);
-    }
-    if ($ep->{'debug'}) {
-	$ep->printf("HTML::EP::Session::DBI: thawing session %s\n",
-		    unpack("H*", $freezed_session));
-    }
-    my $session = Storable::thaw($freezed_session);
-    bless($session, $class);
-    $session->{'_ep_data'} = { 'dbh' => $dbh,
-			       'table' => $table,
-			       'locked' => 1,
-			       'id' => $id,
-			       'code' => $code
-			       };
-    $session;
-}
-
-sub store {
-    my($self, $ep, $id, $locked) = @_;
-    my $data = delete $self->{'_ep_data'}  or die "No _ep_data";
-    my $table = $data->{'table'} || die "No table";
-    my $dbh = $data->{'dbh'};
-    my $freezed_session = Storable::nfreeze($self);
-    my $code = $data->{'code'};
-    if ($code eq 'h') {
-	$freezed_session = unpack("H*", $freezed_session);
-    }
-    my $sth = $dbh->prepare("UPDATE $table SET SESSION = ?"
-			    . ($locked ? "" : ", LOCKED = 0")
-			    . " WHERE ID = ?");
-    $sth->bind_param(1, $code . $freezed_session, DBI::SQL_LONGVARBINARY());
-    $sth->bind_param(2, $id, DBI::SQL_CHAR());
-    $sth->execute();
-    $sth->finish();
-    if ($locked) {
-	$self->{'_ep_data'} = $data;
-    } else {
-	$data->{'locked'} = 0;
-    }
-}
-
-sub delete {
-    my $self = shift;
-    my $data = (delete $self->{'_ep_data'}) || die "No _ep_data";
-    my $table = $data->{'table'} || die "No table";
-    my $id = $data->{'id'};
-    my $dbh = $data->{'dbh'};
-    $dbh->do("DELETE FROM $table WHERE ID = ?", undef, $id);
-    $data->{'locked'} = 0;
-}
-
-sub DESTROY {
-    my $self = shift;
-    my $data = delete $self->{'_ep_data'} || die "No _ep_data";
-    if ($data->{'locked'}) {
-	my $table = $data->{'table'} || die "No table";
-	my $id = $data->{'id'};
-	my $dbh = $data->{'dbh'};
-	$dbh->do("UPDATE $table SET LOCKED = 0 WHERE ID = ?",
-		 undef, $id);
-    }
 }
 
 
@@ -424,18 +308,28 @@ The SESSION column must accept binary characters, in particular NUL bytes.
 If it doesn't, you need to replace the I<Storable> package with I<FreezeThaw>.
 L<Storable(3)>. L<FreezeThaw(3)>.
 
+Ilya Ketris (ilya@gde.to) has pointed out, that these column names are
+causing problems from time to time. He suggested to use queries like
+
+  INSERT INTO $table ("ID", "SESSION", ...
+
+instead. This is of course higly incompatible to other engines. To fix
+that problem, I have added a subclass of I<HTML::EP::Session::DBI>,
+called I<HTML::EP::Session::DBIq> (quoted). You use it by just replacing
+the class name in the ep-session statement.
+
 
 =head2 The Cookie subclass
 
 This class is using Cookies, as introduced by Netscape 2. When using
 Cookies for the session, you have to use a slightly different syntax:
 
-  <ep-session class="HTML::EP::Session::DBI" name="sessions"
+  <ep-session class="HTML::EP::Session::DBI" id="sessions"
               var=session id="$@cgi->id$" expires="+1h"
               domain="www.company.com" path="/"
               zlib=0 base64=0>
 
-The attribute I<name> is the cookie's name. (Cookies are name/value
+The attribute I<id> is the cookie's name. (Cookies are name/value
 pairs.) The optional attributes I<expires>, I<domain> and I<path>
 are referring to the respective attributes of CG::Cookie->new().
 L<CGI::Cookie(3)>.

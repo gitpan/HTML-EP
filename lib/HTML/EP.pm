@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1130';
+$HTML::EP::VERSION = '0.11321';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -41,14 +41,17 @@ $HTML::EP::VERSION = '0.1130';
     'ep-else' =>       { method => '_ep_elseif',
 			 default => 'result',
 			 condition => 0,
-		         always => 1 },
+		         always => 1,
+			 tag => 'ep-else' },
     'ep-elseif' =>     { method => '_ep_elseif',
 			 default => 'result',
 			 condition => 1,
-		         always => 1 },
+		         always => 1,
+		         tag => 'ep-elseif' },
     'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
-		         always => 1 },
+		         always => 1
+		       },
 );
 
 
@@ -182,7 +185,7 @@ sub ParseVar ($$$$) {
     if (!$type  ||  $type eq '%') {
 	$var =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
     } elsif ($type eq '#') {
-	$var = URI::Escape::uri_escape($var);
+	$var = URI::Escape::uri_escape($var, "^a-zA-Z0-9");
     } elsif ($type eq '~') {
 	if (!$self->{dbh}) { die "Not connected"; }
 	$var = $self->{dbh}->quote($var);
@@ -496,19 +499,22 @@ sub CgiRun ($$;$) {
     }
 
     if (!$self->{_ep_stop}) {
-        my @cookies = values %{$self->{'_ep_cookies'}};
-	if (@cookies) {
-	    if ($self->{'debug'}) {
-		require Data::Dumper;
-		print("Setting cookies:\n", Data::Dumper::Dumper(\@cookies),
-		      "\n");
-	    }
-	    $self->{'_ep_headers'}->{'-cookie'} = \@cookies;
-	}
-        $self->print($cgi->header(%{$self->{'_ep_headers'}}), $output);
+	$self->print($cgi->header($self->SetCookies(),
+				  %{$self->{'_ep_headers'}}), $output);
     }
 }
 
+sub SetCookies {
+    my $self = shift;
+    my @cookies = values %{$self->{'_ep_cookies'}};
+    return () unless @cookies;
+    if ($self->{'debug'}) {
+	require Data::Dumper;
+	print("Setting cookies:\n", Data::Dumper::Dumper(\@cookies),
+	      "\n");
+    }
+    ('-cookie' => \@cookies);
+}
 
 sub text ($$) {
     my($self, $text) = @_;
@@ -742,7 +748,7 @@ sub _ep_debug {
 	} else {
 	    $remoteip = ($ENV{'REMOTE_ADDR'} || '');
 	}
-	if (($remoteip !~ /$debughosts/)  and
+	if (($remoteip and $remoteip !~ /$debughosts/)  and
 	    ($remotehost !~ /$debughosts/)) {
 	    die "Debugging not permitted from $remoteip"
 		. " ($remotehost), debug hosts = $debughosts";
@@ -814,7 +820,7 @@ sub _ep_perl ($$;$) {
 	if ($type eq 'html') {
 	    $output =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
 	} elsif ($type eq 'url') {
-	    $output = URI::Escape::uri_escape($output);
+	    $output = URI::Escape::uri_escape($output, "^a-zA-Z0-9");
 	}
     }
     $output;
@@ -1113,11 +1119,13 @@ sub _ep_elseif ($$;$) {
     my($self, $attr, $func) = @_;
     my $stack = $self->{_ep_stack};
     if (!@$stack) {
-	die "$func without if";
+	die "$func->{'tag'} without ep-if";
     }
     my $pop = $stack->[$#$stack];
     if ($pop->{tag} ne 'ep-if') {
-	die "elseif without if, got " . $pop->{tag};
+	my $f = $func->{'method'};
+	$f =~ s/^_ep_/ep-/;
+	die "$func->{'tag'} without ep-if, got " . $pop->{tag};
     }
     if ($pop->{current}) {
 	$pop->{result} = $self->{_ep_output};
@@ -1232,7 +1240,10 @@ _ep_redirect => <<'end_of__ep_redirect',
 sub _ep_redirect ($$;$) {
     my $self = shift; my $attr = shift;
     my $to = $attr->{'to'} or die "Missing redirect target";
-    $self->print($self->{'cgi'}->redirect($to));
+    $self->print("Redirecting to $to\n") if $self->{'debug'};
+    $self->print($self->{'cgi'}->redirect($to,
+                                          $attr->{'cookies'} ?
+                                              $self->SetCookies() : ()));
     $self->Stop();
     '';
 }

@@ -7,7 +7,7 @@ sub HaveModule ($) {
     !$@;
 }
 
-print "1..9\n";
+print "1..13\n";
 
 if (!HaveModule("HTML::EP")) { print "$@\nnot "; }
 print "ok 1\n";
@@ -52,4 +52,32 @@ if (!HaveModule("Mail::POP3Client")) {
 } else {
     print "ok 9\n";
 }
-
+if (HaveModule("HTML::EP::Install")) {
+    print "ok 10\n";
+} else {
+    print STDERR "$@\n";
+    print "not ok 10\n";
+}
+if (HaveModule("DBI")) {
+    if (HaveModule("HTML::EP::Session::DBI")) {
+	print "ok 11\n";
+    } else {
+	print STDERR "$@\n";
+	print "not ok 11\n";
+    }
+    if (HaveModule("HTML::EP::Session::DBIq")) {
+	print "ok 12\n";
+    } else {
+	print STDERR "$@\n";
+	print "not ok 12\n";
+    }
+} else {
+    print "ok 11 # Skip\n";
+    print "ok 12 # Skip\n";
+}
+if (HaveModule("HTML::EP::Session::Dumper")) {
+    print "ok 13\n";
+} else {
+    print STDERR "$@\n";
+    print "not ok 13\n";
+}
