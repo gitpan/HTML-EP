@@ -40,7 +40,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2006';
+$HTML::EP::VERSION = '0.2007';
 
 
 sub new {
@@ -145,12 +145,13 @@ sub FindEndTag {
 }
 
 sub AttrVal {
-    my($self, $val, $tokens, $token) = @_;
+    my($self, $val, $tokens, $token, $parse) = @_;
     return $val if defined($val);
     my $first = $tokens->First();
     my $last = $self->FindEndTag($tokens,
 				 ref($token) ? $token->{'tag'} : $token);
-    $self->TokenMarch($tokens->Clone($first, $last-1));
+    my $output = $self->TokenMarch($tokens->Clone($first, $last-1));
+    $parse ? $self->ParseVars($output) : $output;
 }
 
 sub ParseAttr {
@@ -617,12 +618,7 @@ sub SqlSetupResult {
 sub _ep_query {
     my($self, $attr, $tokens, $token) = @_;
     my $debug = $self->{'debug'};
-    my $statement;
-    unless (defined($statement = $attr->{'statement'})) {
-	my $last = $self->FindEndTag($tokens, $token);
-	$statement = $self->ParseVars
-	    ($self->TokenMarch($tokens->Clone(undef, $last-1)));
-    }
+    my $statement = $self->AttrVal($attr->{'statement'}, $tokens, $token, 1);
     my $dbh = $self->{$attr->{'dbh'} || 'dbh'} || die "Not connected";
     if (!exists($attr->{'result'})) {
         $self->print("Doing Query: $statement\n") if $debug;
@@ -721,8 +717,8 @@ sub _ep_errhandler {
 
 
 sub _ep_error {
-    my $self = shift; my $attr = shift;
-    my $msg = $self->AttrVal($attr->{'msg'}, @_);
+    my($self, $attr, $tokens, $token) = @_;
+    my $msg = $self->AttrVal($attr->{'msg'}, $tokens, $token, 1);
     my $type = $attr->{'type'};
     $self->{_ep_err_type} = ($type  &&  (lc $type) eq 'user') ? 1 : 0;
     die $msg;
@@ -883,12 +879,12 @@ sub _ep_else { die "ep-else without ep-if" }
 
 
 sub _ep_mail {
-    my $self = shift; my $attr = shift;
+    my($self, $attr, $tokens, $token) = @_;
 
     my $host = (delete $attr->{'mailserver'})  ||
 	$self->{'_ep_config'}->{'mailhost'} || '127.0.0.1';
     my @options;
-    my $body = $self->AttrVal($attr->{'body'}, @_);
+    my $body = $self->AttrVal($attr->{'body'}, $tokens, $token, 1);
     require Mail::Header;
     my $msg = Mail::Header->new();
     my($header, $val);
@@ -910,7 +906,7 @@ sub _ep_mail {
     }
     my $smtp = Net::SMTP->new($host, 'Debug' => $debug)
         or die "Cannot open SMTP connection to $host: $!";
-    my $mail = Mail::Internet->new([$self->ParseVars($body)], Header => $msg);
+    my $mail = Mail::Internet->new([$body], Header => $msg);
     $Mail::Util::mailaddress = $from; # Ugly hack to prevent
                                       # DNS lookup for 'mailhost'
                                       # in Mail::Util::mailaddress().
@@ -965,8 +961,8 @@ sub _ep_redirect {
 }
 
 sub _ep_set {
-    my $self = shift; my $attr = shift;
-    my $val = $self->AttrVal($attr->{'val'}, @_);
+    my($self, $attr, $tokens, $token) = @_;
+    my $val = $self->AttrVal($attr->{'val'}, $tokens, $token, 1);
     my $var = $attr->{'var'};
     my $ref = $self;
     while ($var =~ /(.*?)\-\>(.*)/) {

@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: misc.t,v 1.2 1999/10/03 17:46:25 joe Exp $
+# $Id: misc.t,v 1.3 1999/11/17 12:30:14 joe Exp $
 #
 
 use strict;
@@ -9,7 +9,7 @@ $^W = 1;
 $| = 1;
 
 
-print "1..81\n";
+print "1..82\n";
 
 use HTML::EP ();
 
@@ -548,5 +548,11 @@ Test(@HTML::EP::PACK2::ISA == 2  &&
      $HTML::EP::PACK2::ISA[0] eq 'HTML::EP::EditTable'  &&
      $HTML::EP::PACK2::ISA[1] eq 'HTML::EP::Locale')
     or print "Wrong ISA, got\n", map { "  $_\n " } @HTML::EP::PACK2::ISA;
+
+print "Checking ep-set nested with ep-list.\n";
+$parser = HTML::EP->new();
+$parser->{'list'} = [1,2,3,4];
+$input = '<ep-list items=list item=l><ep-set var=Foo>$l$</ep-set>$Foo$</ep-list>';
+Test2($parser->Run($input), "1234");
 
 END { unlink 'foo' }

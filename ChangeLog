@@ -1,3 +1,8 @@
+1999-11-17  Jochen Wiedmann  <joe@ispsoft.de> (0.2007)
+
+	* lib/HTML/EP.pm (_ep_set): Fixed bugs in multiline ep-set,
+	  ep-query and ep-mail.
+
 1999-11-17  Jochen Wiedmann  <joe@ispsoft.de> (0.2006)
 
 	* lib/HTML/EP.pm (_ep_list): Ranges like 1..5,7..9 are now

@@ -50,3 +50,6 @@ examples/shop/admin/index.ep	Shopping cart (Main administration page)
 examples/shop/admin/download.ep	Shopping cart (Download page)
 examples/shop/admin/prefs.ep	Shopping cart (Preferences)
 examples/shop/admin/upload.ep	Shopping cart (Upload page)
+html/test.ep
+html/de.jpg
+html/en.jpg
