@@ -1,3 +1,8 @@
+1999-11-25  Jochen Wiedmann  <joe@ispsoft.de>
+
+	* Added lib/HTML/EP/CGIEncryptForm.pm, contributed by
+         Peter Marelas <maral@phase-one.com.au>.
+
 1999-11-17  Jochen Wiedmann  <joe@ispsoft.de> (0.2007)
 
 	* lib/HTML/EP.pm (_ep_set): Fixed bugs in multiline ep-set,

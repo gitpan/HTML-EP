@@ -48,6 +48,14 @@
     </html>
 
 
+=head1 NEWS
+
+HTML::EP does now have a homepage, a CVS repository and a bug tracking
+system. Try
+
+	http://html-ep.sourceforge.net/
+
+
 =head1 DESCRIPTION
 
 Have you ever written a CGI binary? Easy thing, isn't it? Was just fun!

@@ -149,6 +149,10 @@ if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
 WriteMakefile(%opts);
 die $status if $status;
 
+print "\n\n\nNEWS!\n";
+print "HTML::EP does now have a home page. Try\n\n";
+print "\thttp://html-ep.sourceforge.net/\n";
+
 package MY;
 
 sub postamble {

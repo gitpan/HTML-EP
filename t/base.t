@@ -7,7 +7,7 @@ sub HaveModule ($) {
     !$@;
 }
 
-print "1..12\n";
+print "1..13\n";
 
 if (!HaveModule("HTML::EP")) { print "$@\nnot "; }
 print "ok 1\n";
@@ -75,4 +75,14 @@ if (HaveModule("HTML::EP::Session::Dumper")) {
 } else {
     print STDERR "$@\n";
     print "not ok 12\n";
+}
+if (HaveModule("CGI::EncryptForm")) {
+    if (HaveModule("HTML::EP::CGIEncryptForm")) {
+	print "ok 13\n";
+    } else {
+	print "not ok 13\n";
+	print STDERR "$@\n";
+    }
+} else {
+    print "ok 13 # Skip\n";
 }

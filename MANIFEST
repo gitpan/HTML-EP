@@ -7,6 +7,7 @@ lib/Apache/EP.pm		Modules for mod_perl support
 lib/Bundle/HTML/EP.pm		Bundle for CPAN installation
 lib/HTML/EP.pm			Main module
 lib/HTML/EP.pod			Docs
+lib/HTML/EP/CGIEncryptForm.pm	Interface to CGI::EncryptForm
 lib/HTML/EP/Install.pm
 lib/HTML/EP/EditTable.pm	Editing a DBI table
 lib/HTML/EP/Locale.pm		Localization
@@ -21,6 +22,7 @@ lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration
 lib/HTML/EP/Examples/POP3Client.pm Library for a simple POP3 client
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
+t/cef.t				HTML::EP::CGIEncryptForm test
 t/errors.t			Error handling test
 t/locale.t			HTML::EP::Locale tests
 t/misc.t			Miscellaneous commands
