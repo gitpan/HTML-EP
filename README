@@ -11,24 +11,15 @@ SYNOPSIS
         </ep-comment>
         <ep-perl>
             # This is an example of embedding Perl into the page.
-            # We create a variable called env, containing our environment
-            # variables. This variable will be used below.
+            # We create a variable called time, containing the current
+            # time. This variable will be used below.
             my $self = $_;
-            my $env = [];
-            my($var, $val);
-            while (($var, $val) = each %ENV) {
-                push(@$env, { var => $var, val => $val });
-            }
-            $self->{env} = {%ENV};
-            '';
+            $self->{'time'} = localtime(time());
+            ''; # Return an empty string; result becomes embedded into the
+                # HTML page
         </ep-perl>
-        <body><h1>Your CGI environment</h1>
-            Your CGI environment looks as follows:
-            <table><tr><th>Variable</th><th>Value</th>
-                <ep-list items="env" item="e">
-                   <tr><td>$e->var$</td><td>$e->val$</td>
-                </ep-list>
-            </table>
+        <body><h1>The current time</h1>
+            Your HTML::EP system is up and running: The current time is $time$.
         </body>
         </html>
 
@@ -61,17 +52,17 @@ DESCRIPTION
 
         Talking to HTML designers about realizing their wishes
 
-    You see, it's soon to become a pain. Of course there are lots of little
-    helpers around, for example the CGI module, the mod_perl suite and lots
-    of it more. Using them make live a lot easier, but not so much as you
-    like. the CGI(3) manpage. the mod_perl(3) manpage.
+    You see, it's soon to become a pain. Of course there are little helpers
+    around, for example the CGI module, the mod_perl suite and lots of it
+    more. Using them make live a lot easier, but not so much as you like.
+    the CGI(3) manpage. the mod_perl(3) manpage.
 
     On the other hand, there are tools like PHP/FI or WebHTML. Incredibly
     easy to use, but not as powerfull as Perl. Why not get the best from
     both worlds? This is what EP wants to give you, similar to ePerl or
     HTML::EmbPerl. I personally believe that EP is simpler and better
     extendible than the latter two. the ePerl(1) manpage. the
-    HTML::EmbPerm(3) manpage.
+    HTML::EmbPerl(3) manpage.
 
     In short, it's a single, but extensible program, that scans an HTML
     document for certain special HTML tags. These tags are replaced by
@@ -163,8 +154,10 @@ DESCRIPTION
         <ep-perl>scalar(localtime(time))</ep-perl>
         </body>
 
-    Store it as `/test.ep' on your web server and retrieve the file via your
-    Web server. If you see the time displayed, it are up and running.
+    (Note that this is a much shorter version of the example in the
+    synopsis.) Store it as `/test.ep' on your web server and retrieve the
+    file via your Web server. If you see the time displayed, it are up and
+    running.
 
   Using mod_perl
 
@@ -202,7 +195,7 @@ DESCRIPTION
             </html>
 
         Do not try to embed EP instructions into the comment section! They
-        won't produce output, but they will be executed anyways.
+        won't produce output, but they might be executed anyways.
 
     ep-perl
         This is for embedding Perl into your script. There are two versions
@@ -284,6 +277,14 @@ DESCRIPTION
         See the section on "Variables" below for interactions between Perl
         variables and EP variables.
 
+        For security reasons, you might set an attribute *safe*, as in
+
+            <ep-perl safe=1>...</ep-perl>
+
+        This will create a Safe compartment for you and run the embedded
+        script in the compartment. Using this attribute is highly
+        recommended!
+
     ep-mail
         This command will send an e-mail. The attributes will be used for
         creating the email header, in particular the `subject', `from' and
@@ -297,16 +298,16 @@ DESCRIPTION
                 Jochen
             </ep-mail>
 
-        Note, that you can still use EP variables in the E-mail body, for
-        example the following works:
+        You can still use EP variables in the E-mail body, for example the
+        following works:
 
             <ep-mail subject="Test" from="$cgi->email$" to="joe@ispsoft.de">
                 Hello, Joe,
                 this e-mail was sent to you by $@cgi->name$.
             </ep-mail>
 
-        Note that we suppress conversion into HTML format in the mail body!
-        See the section on "Variables" below for details.
+        But note that we suppress conversion into HTML format in the mail
+        body! See the section on "Variables" below for details.
 
     ep-errhandler
         This command advices EP, what to do in case of errors. See the
@@ -389,7 +390,8 @@ DESCRIPTION
         If your query retrieves a result, use the `result' attribute to
         store it in a variable, for example like this:
 
-            <ep-query statement="SELECT * FROM employees" result="employees">
+            <ep-query statement="SELECT * FROM employees" result="employees"
+                      resulttype="hash" startat=0 limit=-1>
 
         This will create a variable `employees', an array ref of hash refs.
         You can use the ep-list command for displaying the output. See the
@@ -397,6 +399,19 @@ DESCRIPTION
 
         When using multiple database connections, use the *dbh* attribute
         for choosing the connection. (See the *ep-database* method above.)
+
+        If you have big result tables, you might prefer DBI's
+        *fetchrow_arrayref* method over creating hash refs, because arrays
+        are created faster than hash refs. This is achieved by setting the
+        attribute *resulttype* to array. The default is hash.
+
+        Sometimes you don't want to retrieve the complete result table. In
+        that case you can use the attributes *startat* and *limit*. For
+        example, to retrieve rows 0-19, use startat=0 and *limit=20*.
+        Likewise you would use startat=20 and limit=20 for rows 20-39.
+
+        When using the *MySQL* engine, the *startat* and *limit* attributes
+        are directly mapped to MySQL's *LIMIT* clause.
 
     ep-list
         This command is used to display an array of refs. Lets assume, that
@@ -475,7 +490,23 @@ DESCRIPTION
         In general column names beginning with *address* will be splitted
         into `prefix_type_suffix', the type being either 't' for text or 'n'
         for number. The idea is generating SQL queries automatically out of
-        the `address' variable.
+        the `address' variable. This task is supported by the *sqlquery*
+        attribute:
+
+            <ep-database dsn="DBI:mysql:test">
+            <ep-input prefix="address_" dest="a" sqlquery=1>
+            <ep-comment>Create a new record, if no ID is given</ep-comment>
+            <ep-if eval="$cgi->id$">
+            <ep-query
+             statement="INSERT INTO addresses ($@a->names$) VALUES ($@a->values$)">
+            <ep-else>
+            <ep-query
+             statement="UPDATE addresses SET $@a->update$ WHERE id = $@id$">
+
+        The *sqlquery* creates attributes *names*, *values* and *update* for
+        you, that may be used in INSERT or UPDATE queries. Note that the
+        *ep-input* must be preceeded by an *ep-database* call, because it is
+        using DBI's *quote* method. the DBI(3) manpage.
 
         There are situations where you want to fetch not only a single
         object, but a list of objects. Suggest an order form of articles.
@@ -515,6 +546,19 @@ DESCRIPTION
 
               Total sum: $sum$
             </ep-mail>
+
+    ep-include
+        Sometimes you want to source external files. This can be done by
+        using
+
+            <ep-include file="myfile">
+
+        If a file with the given name doesn't exist, the file name is
+        treated as being relative to your WWW servers *DOCUMENT_ROOT*
+        directory.
+
+    ep-exit
+        This directive terminates processing of the current HTML page.
 
   Conditional HTML
 
@@ -678,6 +722,45 @@ DESCRIPTION
     between `<ep-perl>' and `</ep-perl>'. However, you need to use the
     variable `$_' in the code, because the package otherwise doesn't detect
     what you want it to do.
+
+    See the section on "Custom variable formatting" for setting up your own
+    formats.
+
+  Custom variable formatting
+
+    Sometimes the builtin formatting methods of HTML::EP are not sufficient.
+    A good example are currencies. Such format methods are stored in the
+    variable *_ep_custom_formats*. As an example we create a method for
+    formatting german currency values:
+
+        <ep-perl>
+            my $self = $_;
+            my $formats = ($self->{'_ep_custom_formats'} ||= {});
+            $formats->{'DM'} = sub {
+                my($self, $val) = @_;
+                sprintf("%.2f DM", $val);
+                $val =~ s/\./,/;
+                $val;
+            };
+            ''
+        </ep-perl>
+
+    This can be used as follows: Suggest we have the following variables:
+
+        a = 1
+        b = 2.4
+        c = 34.47
+
+    then we can use
+
+        a = $&DM->a$                =>  1,00 DM
+        b = $&DM->b$                =>  2,40 DM
+        c = $&DM->c$                => 34,47 DM
+
+    In other words: Use the special marker &, followed by the custom formats
+    method name, the dereferencing operator and finally the variable name.
+
+    The above method is already predefined by the HTML::EP::Locale module.
 
   Producing Non-HTML
 
@@ -915,6 +998,32 @@ EXTENSIONS
     but this will change in the future. The *isa* attribute can be omitted
     and defaults to `HTML::EP'. Otherwise it is a blank separated list of
     package names, just like @ISA is.
+
+PERFORMANCE CONSIDERATIONS
+    The following are merely hints for general Perl programming, but apply
+    in particular to EP programming:
+
+    Local variables
+            Use local variables instead of hash attributes, as in
+
+                my $debug;
+                if ($debug = $self->{'debug'}) {
+                    ...
+                }
+                if (!$debug) {
+                    ...
+                }
+
+            This is approximately 10-15% faster than the equivalent
+
+                if ($self->{'debug'}) {
+                    ...
+                }
+                if (!$self->{'debug'}) {
+                    ...
+                }
+
+            Of course you win even more with any further use of `$debug'.
 
 CHANGES
     This section describes user visible changes against previous versions.

@@ -1,3 +1,40 @@
+1998-09-12  Jochen Wiedmann  <joe@ispsoft.de> (0.1106)
+
+	* ep.pm.PL: Added startat and limit to ep-query.
+	* EP.pm.in: $self->{_ep_funcs} required only for non-standard
+	  methods.
+	* EP.pm.in: Added custom formats.
+	* lib/HTML/EP/Locale.pm: Added custom format for german DM.
+
+1998-09-11  Jochen Wiedmann  <joe@ispsoft.de> (0.1105)
+
+	* ep.cgi.PL: Rats! _ep_exit was trapped in ep.cgi and not in
+	  ep.cgi.PL. :-(
+	* EP.pm.in (DESTROY): Removed explicit $dbh->disconnect(), because
+	  disconnect() was called twice if ep-include is used. Instead we
+	  now set $dbh->{'Warn'} to 0, so warnings are prevented anyways.
+
+1998-09-09  Jochen Wiedmann  <joe@nt.ispsoft.de> (0.1104)
+
+	* EP.pm.in: _ep_exit is now based on exceptions.
+	* EP.pm.in: Added DESTROY method for calling dbh->disconnect().
+
+1998-09-07  Jochen Wiedmann  <joe@ispsoft.de> (0.1103)
+
+	* EP.pm.in: Added WarnHandler to trap compile errors.
+	* ep.cgi: Added SIGDIE handler to trap compile errors.
+	* lib/HTML/EP/Session.pm: Added "hex" mode to ep-session.
+	* Added ep-exit and ep-include.
+	* No longer depends on HTML::Parser.
+
+1998-08-27  Jochen Wiedmann  <joe@ispsoft.de> (0.1101)
+
+	* EP.pm.in (_ep_perl): Removed the default Safe compartment in
+	  favour of an attribute "safe". It's too nasty and one seems
+	  to be using "package=temp" almost always. :-(
+	* EP.pm.in (_ep_query): Documented $attr->{'resulttype'}.
+	* Added HTML::EP::Session.
+
 1998-07-24  Jochen Wiedmann  <joe@ispsoft.de> (0.1100)
 
 	* lib/HTML/EP.pod: Documented mod_perl integration.

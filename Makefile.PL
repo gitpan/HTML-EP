@@ -25,53 +25,39 @@ use strict;
 use ExtUtils::MakeMaker qw(prompt WriteMakefile);
 
 
+my %prereq;
+sub CheckModule ($;$$) {
+    my($module, $version, $package) = @_;
+    $package ||= $module;
+    $prereq{$module} = $version || 0;
+    if ($version) {
+        print "Checking for $package, $version or later ... ";
+        eval "use $module $version";
+        if ($@) {
+            print("\nYou don't have installed the $package package,",
+                  " version $version or later.\n");
+            return 0;
+        }
+    } else {
+        print "Checking for $package ... ";
+        eval "use $module";
+        if ($@) {
+            print("\nYou don't have installed the $package package.\n");
+            return 0;
+        }
+    }
+    print "ok\n";
+    return 1;
+}
+
 if (!$ENV{CREATE_ONLY}) {
-    my($ok) = 1;
-    my($recommended) = 0;
+    my $ok = 1;
+    $ok &&= CheckModule("Data::Dumper");
+    $ok &&= CheckModule("Storable");
+    $ok &&= CheckModule("LWP", undef, "libwww");
+    $ok &&= CheckModule("Mail::Internet", undef, "MailTools");
 
-    print "Checking for Data-Dumper ... ";
-    $@ = '';
-    eval "use Data::Dumper ();";
-    if ($@) {
-	$recommended = 0;
-	print("\nYou don't have installed the Data-Dumper module.\n",
-	      "I won't be able to test sending emails.\n");
-    } else {
-	print "ok\n";
-    }
-    
-    print "Checking for HTML-Parser ... ";
-    $@ = '';
-    eval "use HTML::Parser ();";
-    if ($@) {
-	$ok = 0;
-	print("\nYou don't have installed the HTML-Parser module.\n");
-    } else {
-	print "ok\n";
-    }
-
-    print "Checking for libwww ... ";
-    $@ = '';
-    eval "use LWP ();";
-    if ($@) {
-	$ok = 0;
-	print("\nYou don't have installed the libwww modules.\n");
-    } else {
-	print "ok\n";
-    }
-
-    print "Checking for MailTools ... ";
-    $@ = '';
-    eval "use Mail::Internet ();";
-    if ($@) {
-	$ok = 0;
-	print("\nYou don't have installed the MailTools package.\n");
-    } else {
-	print "ok\n";
-    }
-
-
-    if (!$ok  ||  $recommended) {
+    if (!$ok) {
 	print <<"MESSAGE";
 
 Missing modules are available from any CPAN mirror, for example
@@ -79,7 +65,7 @@ Missing modules are available from any CPAN mirror, for example
 
 MESSAGE
     }
-    
+
     if (!$ok) {
 	exit 1;
     }
@@ -145,7 +131,7 @@ if ($create) {
 if ($ENV{CREATE_ONLY}) { exit 0; }
 
 
-WriteMakefile(
+my %opts = (
     'NAME'	   => 'HTML::EP',
     'VERSION_FROM' => 'lib/HTML/EP.pm',
     'EXE_FILES'    => [ 'ep.cgi' ],
@@ -155,6 +141,14 @@ WriteMakefile(
     'clean'        => { 'FILES' => 'ep.cgi' },
     'realclean'    => { 'FILES' => 'configuration lib/HTML/EP.pm' },
 );
+
+if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
+    $opts{'ABSTRACT'} = 'A system for embedding Perl into HTML';
+    $opts{'AUTHOR'} = 'Jochen Wiedmann (joe@ispsoft.de)';
+    $opts{'PREREQ_PM'} = \%prereq;
+}
+
+WriteMakefile(%opts);
 
 
 package MY;
@@ -168,6 +162,7 @@ README: lib/HTML/EP.pod
 
 lib/HTML/EP.pm: EP.pm.in
 \t$^X -e '\$\$ENV{CREATE_ONLY} = 1; do "Makefile.PL"'
+
 END_OF_POSTAMBLE
 }
 
@@ -178,4 +173,10 @@ sub libscan {
     } else {
 	$path;
     }
+}
+
+sub test {
+    my($self) = @_;
+    my $makesrc = $self->SUPER::test();
+    "test :: \$(EXE_FILES)\n\t\$(NOOP)\n\n" . $makesrc;
 }

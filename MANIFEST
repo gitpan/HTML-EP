@@ -6,8 +6,10 @@ EP.pm.in			Main module
 lib/Apache/EP.pm		Modules for mod_perl support
 lib/HTML/EP.pod			Docs
 lib/HTML/EP/Locale.pm		Localization
+lib/HTML/EP/Session.pm		Session management
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
 t/errors.t			Error handling test
 t/misc.t			Miscellaneous commands
+t/session.t			Session test
 t/vars.t			Variable handling test

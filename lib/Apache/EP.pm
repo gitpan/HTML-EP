@@ -31,7 +31,7 @@ require Symbol;
 
 package Apache::EP;
 
-$Apache::EP::VERSION = '0.1002';
+$Apache::EP::VERSION = '0.1003';
 
 my $Is_Win32 = $^O eq "MSWin32";
 
@@ -112,8 +112,9 @@ sub handler ($$) {
 	}
 	$self->{debug} = 1;                                 
     }
+    local $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
     my $output = eval { $self->Run(); };
-    if ($@) {
+    if ($@  &&  $@ !~ /_ep_exit, ignore/) {
 	my $errstr = $@;
 	my $errfile = $self->{_ep_err_type} ?
 	    $self->{_ep_err_file_system} : $self->{_ep_err_file_user};

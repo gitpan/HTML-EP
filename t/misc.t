@@ -2,8 +2,11 @@
 
 use strict;
 
+$^W = 1;
+$| = 1;
 
-print "1..40\n";
+
+print "1..48\n";
 
 require HTML::EP;
 
@@ -52,6 +55,7 @@ my $output = <<'END_OF_HTML';
 END_OF_HTML
 Test2($parser->Run($input), $output, "Multi-line comment.\n");
 
+
 $parser = HTML::EP->new();
 $input = <<'END_OF_HTML';
 <HTML><!-- This is a comment; it will stay -->
@@ -59,6 +63,47 @@ $input = <<'END_OF_HTML';
 </HTML>
 END_OF_HTML
 Test2($parser->Run($input), $output, "Single-line comment.\n");
+
+
+$input = "<HTML>We'll see this</HTML><ep-exit>But not this!";
+$output = "<HTML>We'll see this</HTML>";
+$parser = HTML::EP->new();
+eval { $parser->Run($input) }; 
+Test2($parser->{'_ep_output'}, $output, "Exit\n");
+
+$input = q{<HTML>We'll see this</HTML><ep-if eval="$a$"><ep-exit></ep-if>}
+     . "And this!";
+$output = "<HTML>We'll see this</HTML>And this!";
+$parser = HTML::EP->new();
+$parser->{'a'} = 0;
+Test2($parser->Run($input), $output, "Exit 2\n");
+
+$input = q{<HTML>We'll see this</HTML><ep-if eval="$a$"><ep-exit></ep-if>}
+     . "But not this!";
+$output = "<HTML>We'll see this</HTML>";
+$parser = HTML::EP->new();
+$parser->{'a'} = 1;
+eval { $parser->Run($input) }; 
+Test2($parser->{'_ep_output'}, $output, "Exit 3\n");
+
+$input = q{<HTML>We'll see this</HTML><ep-if eval="$a$">And this!}
+     . q{<ep-if eval="$a$"><ep-exit></ep-if></ep-if>}
+     . "But not this!";
+$output = "<HTML>We'll see this</HTML>And this!";
+$parser = HTML::EP->new();
+$parser->{'a'} = 1;
+eval { $parser->Run($input) }; 
+Test2($parser->{'_ep_output'}, $output, "Exit 4\n");
+
+
+$input = 'a<ep-include file="foo">c';
+$output = 'abc';
+if ((-f "foo"  &&  !unlink("foo"))  ||
+    !open(FOO, ">foo")  ||  !(print FOO "b")  ||  !close(FOO)) {
+    die "Error while writing 'foo': $!";
+}
+$parser = HTML::EP->new();
+Test2($parser->Run($input), $output, "Include.\n");
 
 
 $parser = HTML::EP->new();
@@ -86,7 +131,7 @@ _END_OF_HTML
 Test2($parser->Run($input), $output, "Multi-line Perl expression.\n");
 
 
-$input = '<ep-package name="HTML::EP::Locale" require=1>'
+$input = '<ep-package name="HTML::EP::Locale">'
     . '<ep-language de="Deutsch" en="English">';
 $parser = HTML::EP->new();
 $parser->{env}->{PATH_TRANSLATED} = "test.de.html";
@@ -97,7 +142,7 @@ Test2($parser->Run($input), "English", "Single-line Localization.\n");
 $parser = HTML::EP->new();
 $parser->{env}->{PATH_TRANSLATED} = "test.no.html";
 Test2($parser->Run($input), "", "Single-line Localization.\n");
-$input = '<ep-package name="HTML::EP::Locale" require=1>'
+$input = '<ep-package name="HTML::EP::Locale">'
     . '<ep-language language=de>Deutsch</ep-language>'
     . '<ep-language language=en>English</ep-language>';
 $parser = HTML::EP->new();
@@ -140,12 +185,17 @@ if (!$have_dbi  ||  !$have_dbd_csv) {
 <ep-query statement="CREATE TABLE foo (id INTEGER, name VARCHAR(64))">
 <ep-query statement="INSERT INTO foo VALUES (1, 'joe')">
 <ep-query statement="INSERT INTO foo VALUES (2, 'amar')">
+<ep-query statement="INSERT INTO foo VALUES (3, 'gerald')">
 <ep-query statement="SELECT * FROM foo" result="people">
+$people_rows$
 <TABLE>
 <ep-list items="people" item="p">
   <TR><TD>$p->id$</TD><TD>$p->name$</TD>
 </ep-list>
 </TABLE>
+<ep-query statement="SELECT * FROM foo" result="people2" limit=1 startat=1>
+$people2_rows$
+<ep-list items="people2" item="p">$p->id$,$p->name$</ep-list>
 </HTML>
 _END_OF_HTML
     $output = <<'_END_OF_HTML';
@@ -155,13 +205,20 @@ _END_OF_HTML
 
 
 
+
+3
 <TABLE>
 
   <TR><TD>1</TD><TD>joe</TD>
 
   <TR><TD>2</TD><TD>amar</TD>
 
+  <TR><TD>3</TD><TD>gerald</TD>
+
 </TABLE>
+
+1
+2,amar
 </HTML>
 _END_OF_HTML
     Test2($parser->Run($input), $output, "SQL queries.\n");
@@ -207,6 +264,28 @@ $output = <<'_END_OF_HTML';
 _END_OF_HTML
 $parser = HTML::EP->new();
 Test2($parser->Run($input), $output, "Object input.\n");
+
+if (!$have_dbi  ||  !$have_dbd_csv) {
+    ++$numTests;
+    print "ok $numTests # Skip\n";
+} else {
+    $input = '<ep-database dsn="DBI:CSV:">'.$input;
+    $input =~ s/(dest=address)/$1 sqlquery=1/;
+    $input .= <<'END_OF_HTML';
+<P>Names = $address->names$
+<P>Values = $address->values$
+<P>Update = $address->update$
+END_OF_HTML
+    $output .= <<'END_OF_HTML';
+<P>Names = name, street, zip, city, date1, date2, date3
+<P>Values = 'joe', 'Am Eisteich 9', 72555, 'Metzingen', '1998-07-02', '1998-07-02', '2008-07-02'
+<P>Update = name = 'joe', street = 'Am Eisteich 9', zip = 72555, city = 'Metzingen', date1 = '1998-07-02', date2 = '1998-07-02', date3 = '2008-07-02'
+END_OF_HTML
+    $parser = HTML::EP->new();
+    Test2($parser->Run($input), $output,
+	  "Object input with 'sqlquery' set.\n");
+}
+
 
 $ENV{QUERY_STRING} = 'art_0_t_name=Book&art_0_n_price=5.00'
     . '&art_1_t_name=Donut&art_1_n_price=1.00';
@@ -364,5 +443,31 @@ _END_OF_HTML
 }
 
 
-if (-f 'foo') { unlink 'foo' }
+$input = '$&DM->a$ and $&Dollar->b$';
+$output = '34,50 DM and 27.10 $';
+$parser = HTML::EP->new();
+$parser->{'_ep_custom_formats'}->{'DM'} = sub {
+    my($self, $var) = @_;
+    $var = sprintf("%.2f DM", $var);
+    $var =~ s/\./,/;
+    $var;
+};
+$parser->{'_ep_custom_formats'}->{'Dollar'} = sub {
+    my($self, $var) = @_;
+    sprintf("%.2f \$", $var);
+};
+$parser->{'a'} = 34.5;
+$parser->{'b'} = 27.1;
+Test2($parser->Run($input), $output, "Custom formatting\n");
 
+$input = '<ep-package name="HTML::EP::Locale">$&DM->a$ and $&DM->b$';
+$output = '1 234 567,50 DM and 273 682,00 DM';
+$parser = HTML::EP->new();
+$parser->{'a'} = 1234567.5;
+$parser->{'b'} = 273682;
+$parser->{'env'} = { 'PATH_TRANSLATED' => '' };
+Test2($parser->Run($input), $output, "Locale's custom formatting\n");
+
+
+
+if (-f 'foo') { unlink 'foo' }

@@ -41,12 +41,17 @@ sub init ($) {
 	$self->{_ep_language} = $lang;
 	$self->{_ep_funcs}->{'ep-language'} = { method => '_ep_language',
 						default => 'string' },
+	my $formats = $self->{'_ep_custom_formats'};
+	if (!$formats) {
+	    $formats = $self->{'_ep_custom_formats'} = {};
+	}
+	$formats->{'DM'} = \&_format_DM;
     }
 }
 
 
 sub _ep_language ($$;$) {
-    my($self, $attr, $func) = @_;
+    my($self, $attr) = @_;
     if (exists($attr->{language})) {
 	if (!defined($attr->{string})) { return undef; }
 	($attr->{language} eq $self->{_ep_language}) ? $attr->{string} : '';
@@ -55,5 +60,16 @@ sub _ep_language ($$;$) {
 	    $attr->{$self->{_ep_language}} : '';
     }
 }
+
+
+sub _format_DM {
+    my $self = shift; my $str = shift;
+    $str = sprintf("%.2f DM", $str);
+    while ($str =~ s/(\d)(\d\d\d[\.\s])/$1 $2/) {
+    }
+    $str =~ s/\./,/;
+    $str;
+}
+
 
 1;

@@ -35,24 +35,15 @@
     </ep-comment>
     <ep-perl>
 	# This is an example of embedding Perl into the page.
-	# We create a variable called env, containing our environment
-	# variables. This variable will be used below.
+	# We create a variable called time, containing the current
+        # time. This variable will be used below.
         my $self = $_;
-	my $env = [];
-	my($var, $val);
-	while (($var, $val) = each %ENV) {
-	    push(@$env, { var => $var, val => $val });
-	}
-	$self->{env} = {%ENV};
-	'';
+	$self->{'time'} = localtime(time());
+	''; # Return an empty string; result becomes embedded into the
+            # HTML page
     </ep-perl>
-    <body><h1>Your CGI environment</h1>
-	Your CGI environment looks as follows:
-	<table><tr><th>Variable</th><th>Value</th>
-	    <ep-list items="env" item="e">
-	       <tr><td>$e->var$</td><td>$e->val$</td>
-	    </ep-list>
-	</table>
+    <body><h1>The current time</h1>
+        Your HTML::EP system is up and running: The current time is $time$.
     </body>
     </html>
 
@@ -108,16 +99,16 @@ Talking to HTML designers about realizing their wishes
 
 =back
 
-You see, it's soon to become a pain. Of course there are lots of little
-helpers around, for example the CGI module, the mod_perl suite and
-lots of it more. Using them make live a lot easier, but not so much as
-you like. L<CGI(3)>. L<mod_perl(3)>.
+You see, it's soon to become a pain. Of course there are little helpers
+around, for example the CGI module, the mod_perl suite and lots of it
+more. Using them make live a lot easier, but not so much as you like.
+L<CGI(3)>. L<mod_perl(3)>.
 
 On the other hand, there are tools like PHP/FI or WebHTML. Incredibly
 easy to use, but not as powerfull as Perl. Why not get the best from
 both worlds? This is what EP wants to give you, similar to ePerl or
 HTML::EmbPerl. I personally believe that EP is simpler and better
-extendible than the latter two. L<ePerl(1)>. L<HTML::EmbPerm(3)>.
+extendible than the latter two. L<ePerl(1)>. L<HTML::EmbPerl(3)>.
 
 In short, it's a single, but extensible program, that scans an HTML
 document for certain special HTML tags. These tags are replaced by
@@ -218,6 +209,7 @@ directly! Verify your installation by creating the following file:
     <ep-perl>scalar(localtime(time))</ep-perl>
     </body>
 
+(Note that this is a much shorter version of the example in the synopsis.)
 Store it as C</test.ep> on your web server and retrieve the file via
 your Web server. If you see the time displayed, it are up and running.
 
@@ -263,7 +255,7 @@ Example:
     </html>
 
 Do not try to embed EP instructions into the comment section! They
-won't produce output, but they will be executed anyways.
+won't produce output, but they might be executed anyways.
 
 
 =item ep-perl
@@ -347,6 +339,13 @@ returning can help), do it like this:
 See L<"Variables"> below for interactions between Perl variables and
 EP variables.
 
+For security reasons, you might set an attribute I<safe>, as in
+
+    <ep-perl safe=1>...</ep-perl>
+
+This will create a B<Safe> compartment for you and run the embedded script
+in the compartment. Using this attribute is highly recommended!
+
 
 =item ep-mail
 
@@ -362,15 +361,15 @@ should be used. Example:
 	Jochen
     </ep-mail>
 
-Note, that you can still use EP variables in the E-mail body, for example
-the following works:
+You can still use EP variables in the E-mail body, for example the
+following works:
 
     <ep-mail subject="Test" from="$cgi->email$" to="joe@ispsoft.de">
         Hello, Joe,
         this e-mail was sent to you by $@cgi->name$.
     </ep-mail>
 
-Note that we suppress conversion into HTML format in the mail body!
+But note that we suppress conversion into HTML format in the mail body!
 See L<"Variables"> below for details.
 
 
@@ -461,7 +460,8 @@ is the same as
 If your query retrieves a result, use the C<result> attribute to store it
 in a variable, for example like this:
 
-    <ep-query statement="SELECT * FROM employees" result="employees">
+    <ep-query statement="SELECT * FROM employees" result="employees"
+              resulttype="hash" startat=0 limit=-1>
 
 This will create a variable C<employees>, an array ref of hash refs.
 You can use the ep-list command for displaying the output. See
@@ -469,6 +469,19 @@ L<"Variables"> below.
 
 When using multiple database connections, use the I<dbh> attribute for
 choosing the connection. (See the I<ep-database> method above.)
+
+If you have big result tables, you might prefer DBI's I<fetchrow_arrayref>
+method over creating hash refs, because arrays are created faster than
+hash refs. This is achieved by setting the attribute I<resulttype> to
+B<array>. The default is B<hash>.
+
+Sometimes you don't want to retrieve the complete result table. In that
+case you can use the attributes I<startat> and I<limit>. For example,
+to retrieve rows 0-19, use B<startat=0> and I<limit=20>. Likewise you
+would use B<startat=20> and B<limit=20> for rows 20-39.
+
+When using the I<MySQL> engine, the I<startat> and I<limit> attributes
+are directly mapped to MySQL's I<LIMIT> clause.
 
 
 =item ep-list
@@ -552,7 +565,23 @@ hash ref as follows:
 In general column names beginning with I<address> will be splitted into
 C<prefix_type_suffix>, the type being either 't' for text or 'n' for
 number. The idea is generating SQL queries automatically out of the
-C<address> variable.
+C<address> variable. This task is supported by the I<sqlquery> attribute:
+
+    <ep-database dsn="DBI:mysql:test">
+    <ep-input prefix="address_" dest="a" sqlquery=1>
+    <ep-comment>Create a new record, if no ID is given</ep-comment>
+    <ep-if eval="$cgi->id$">
+    <ep-query
+     statement="INSERT INTO addresses ($@a->names$) VALUES ($@a->values$)">
+    <ep-else>
+    <ep-query
+     statement="UPDATE addresses SET $@a->update$ WHERE id = $@id$">
+
+The I<sqlquery> creates attributes I<names>, I<values> and I<update> for
+you, that may be used in INSERT or UPDATE queries. Note that the I<ep-input>
+must be preceeded by an I<ep-database> call, because it is using DBI's
+I<quote> method. L<DBI(3)>.
+
 
 There are situations where you want to fetch not only a single object,
 but a list of objects. Suggest an order form of articles. Then you
@@ -592,6 +621,22 @@ order form as follows:
 
       Total sum: $sum$
     </ep-mail>
+
+
+=item ep-include
+
+Sometimes you want to source external files. This can be done
+by using
+
+    <ep-include file="myfile">
+
+If a file with the given name doesn't exist, the file name is treated as
+being relative to your WWW servers I<DOCUMENT_ROOT> directory.
+
+
+=item ep-exit
+
+This directive terminates processing of the current HTML page.
 
 =back
 
@@ -763,6 +808,46 @@ Even more, they may contain Perl code which is evaluated just like
 code between C<E<lt>ep-perlE<gt>> and C<E<lt>/ep-perlE<gt>>. However,
 you need to use the variable C<$_> in the code, because the package
 otherwise doesn't detect what you want it to do.
+
+See L<"Custom variable formatting"> for setting up your own formats.
+
+
+=head2 Custom variable formatting
+
+Sometimes the builtin formatting methods of HTML::EP are not sufficient.
+A good example are currencies. Such format methods are stored in the
+variable I<_ep_custom_formats>. As an example we create a method for
+formatting german currency values:
+
+    <ep-perl>
+        my $self = $_;
+        my $formats = ($self->{'_ep_custom_formats'} ||= {});
+        $formats->{'DM'} = sub {
+	    my($self, $val) = @_;
+	    sprintf("%.2f DM", $val);
+	    $val =~ s/\./,/;
+	    $val;
+        };
+        ''
+    </ep-perl>
+
+This can be used as follows: Suggest we have the following variables:
+
+    a = 1
+    b = 2.4
+    c = 34.47
+
+then we can use
+
+    a = $&DM->a$	       	=>  1,00 DM
+    b = $&DM->b$	       	=>  2,40 DM
+    c = $&DM->c$	       	=> 34,47 DM
+
+In other words: Use the special marker B<&>, followed by the custom
+formats method name, the dereferencing operator and finally the variable
+name.
+
+The above method is already predefined by the HTML::EP::Locale module.
 
 
 =head2 Producing Non-HTML
@@ -1020,6 +1105,39 @@ but this will change in the future. The I<isa> attribute can be omitted
 and defaults to C<HTML::EP>. Otherwise it is a blank separated list
 of package names, just like @ISA is.
 
+
+
+=head1 PERFORMANCE CONSIDERATIONS
+
+The following are merely hints for general Perl programming, but apply
+in particular to EP programming:
+
+=over 8
+
+=item Local variables
+
+Use local variables instead of hash attributes, as in
+
+    my $debug;
+    if ($debug = $self->{'debug'}) {
+        ...
+    }
+    if (!$debug) {
+        ...
+    }
+
+This is approximately 10-15% faster than the equivalent
+
+    if ($self->{'debug'}) {
+        ...
+    }
+    if (!$self->{'debug'}) {
+        ...
+    }
+
+Of course you win even more with any further use of C<$debug>.
+
+=back
 
 
 =head1 CHANGES

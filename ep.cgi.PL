@@ -81,9 +81,9 @@ END_OF_HTML
 
 
 my $self;
-$@ = '';
 eval {
     require HTML::EP;
+    $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
     $self = HTML::EP->new();
 };
 if ($@) {
@@ -99,27 +99,31 @@ if ($self->{cgi}->param('debug')) {
     }
     $self->{debug} = 1;
 }
-my($output) = eval { $self->Run(); };
+my $output = eval { $self->Run(); };
 if ($@) {
-    my $errmsg;
-    my $errfile = $self->{_ep_err_type} ?
-	$self->{_ep_err_file_system} : $self->{_ep_err_file_user};
-    if ($errfile) {
-	eval {
-	    require Symbol;
-	    my $fh = Symbol::gensym();
-	    if (open($fh, "<$errfile")) {
-		local($/) = undef;
-		$errmsg = <$fh>;
-		close($fh);
-	    }
-	};
+    if ($@ =~ /_ep_exit, ignore/) {
+	$output = $self->{'_ep_output'};
+    } else {
+	my $errmsg;
+	my $errfile = $self->{_ep_err_type} ?
+	    $self->{_ep_err_file_system} : $self->{_ep_err_file_user};
+	if ($errfile) {
+	    eval {
+		require Symbol;
+		my $fh = Symbol::gensym();
+		if (open($fh, "<$errfile")) {
+		    local($/) = undef;
+		    $errmsg = <$fh>;
+		    close($fh);
+		}
+	    };
+	}
+	if (!$errmsg) {
+	    $errmsg = $self->{_ep_err_type} ?
+		$self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
+	}
+	SimpleError($errmsg, $@);
     }
-    if (!$errmsg) {
-	$errmsg = $self->{_ep_err_type} ?
-	    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
-    }
-    SimpleError($errmsg, $@);
 }
 
 if (!$self->{_ep_stop}) {
