@@ -81,49 +81,54 @@ MSG
 }
 
 
-my $cfg = {};
-if (-f "lib/HTML/EP/Config.pm"  and  ! $opt_config) {
-    $cfg = do "lib/HTML/EP/Config.pm";
-    die $@ if $@;
-} else {
-    eval { require HTML::EP::Config };
-    $cfg = $HTML::EP::Config::CONFIGURATION || {};
+my $cfg;
+eval {
+    if (-f "lib/HTML/EP/Config.pm"  and  ! $opt_config) {
+	$cfg = do "lib/HTML/EP/Config.pm";
+	die $@ if $@;
+    } else {
+	eval { require HTML::EP::Config };
+	$cfg = $HTML::EP::Config::CONFIGURATION || {};
 
-    my $email = $cfg->{'email'} || "none";
-    $cfg->{'email'} =
-	prompt("\nEnter an email address for sending test mails: ", $email);
-    my $mailhost = $cfg->{'mailhost'} || "127.0.0.1";
-    $cfg->{'mailhost'} =
-	prompt("\nEnter a mail server for sending mails: ", $mailhost);
-    my $debughosts = $cfg->{'debughosts'} ||
-	'^(?:127\.0\.0\.1$|192\.168\.)';
-    $cfg->{'debughosts'} =
-        prompt("\nSecurity: Enter a regular expression for hosts that may"
-               . " enter debugging\nmode: ", $debughosts);
-    my $ok_templates = $cfg->{'ok_templates'} || '\.ep$';
-    $cfg->{'ok_templates'} =
-        prompt("\nSecurity: Enter a regular expression for files that may be"
-               . " processed by\nEP: ", $ok_templates);
-    my $optimization = $cfg->{'optimization'} || "n";
-    $cfg->{optimization} =
- 	(prompt(q[
+	my $email = $cfg->{'email'} || "none";
+	$cfg->{'email'} =
+	    prompt("\nEnter an email address for sending test mails: ",
+		   $email);
+	my $mailhost = $cfg->{'mailhost'} || "127.0.0.1";
+	$cfg->{'mailhost'} =
+	    prompt("\nEnter a mail server for sending mails: ", $mailhost);
+	my $debughosts = $cfg->{'debughosts'} ||
+	    '^(?:127\.0\.0\.1$|192\.168\.)';
+	$cfg->{'debughosts'} =
+	    prompt("\nSecurity: Enter a regular expression for hosts that may"
+		   . " enter debugging\nmode: ", $debughosts);
+	my $ok_templates = $cfg->{'ok_templates'} || '\.ep$';
+        $cfg->{'ok_templates'} =
+            prompt("\nSecurity: Enter a regular expression for files that may"
+                   . " be processed by\nEP: ", $ok_templates);
+        my $optimization = $cfg->{'optimization'} || "n";
+        $cfg->{optimization} =
+ 	    (prompt(q[
 The HTML::EP module can be optimized for fast compilation or fast startup.
 The former is recommended in traditional CGI binaries, the latter for
 mod_perl. Shall I optimize for fast startup, aka mod_perl? ], "y") =~ /y/) ?
-        "startup" : "compilation";
-    my $language = $cfg->{'default_language'} || "de";
-    $cfg->{'default_language'} =
-	prompt("\nEnter the default language, for example de (German) or"
-	       . " en (English): ", $language);
+            "startup" : "compilation";
+        my $language = $cfg->{'default_language'} || "de";
+        $cfg->{'default_language'} =
+	    prompt("\nEnter the default language, for example de (German) or"
+	           . " en (English): ", $language);
 
-    my $cfgdump = Data::Dumper->new([$cfg], ['CONFIGURATION']);
-    $cfgdump->Indent(1);
-    if (!open(FILE, ">lib/HTML/EP/Config.pm")  ||
-	!(print FILE ("package HTML::EP::Config;\n", $cfgdump->Dump()))  ||
-	!close(FILE)) {
-	die "Cannot create config file: $!";
+        require Data::Dumper;
+        my $cfgdump = Data::Dumper->new([$cfg], ['CONFIGURATION']);
+        $cfgdump->Indent(1);
+        if (!open(FILE, ">lib/HTML/EP/Config.pm")  ||
+	    !(print FILE ("package HTML::EP::Config;\n", $cfgdump->Dump()))  ||
+	    !close(FILE)) {
+	    die "Cannot create config file: $!";
+        }
     }
-}
+};
+my $status = $@;
 
 
 my %opts = (
@@ -144,7 +149,7 @@ if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
 }
 
 WriteMakefile(%opts);
-
+die $status if $status;
 
 package MY;
 
