@@ -355,7 +355,7 @@ the email header, in particular the C<subject>, C<from> and C<to> attribute
 should be used. Example:
 
     <ep-mail subject="Howdy!" from="joe@ispsoft.de"
-             to="bill@whitehouse.gov">
+             reply-to="joe@ispsoft.de" to="bill@whitehouse.gov">
 	Hello, Bill, old chap. How are you?
 
 	Yours sincerely,
@@ -365,13 +365,20 @@ should be used. Example:
 You can still use EP variables in the E-mail body, for example the
 following works:
 
-    <ep-mail subject="Test" from="$cgi->email$" to="joe@ispsoft.de">
+    <ep-mail subject="Test" reply-to="$cgi->email$" to="joe@ispsoft.de"
+             from="webmaster@www.mydomain.com">
         Hello, Joe,
         this e-mail was sent to you by $@cgi->name$.
     </ep-mail>
 
 But note that we suppress conversion into HTML format in the mail body!
 See L<"Variables"> below for details.
+
+Recent sendmail versions are quite picky about validity of email addresses.
+Thus it is highly recommended that you use valid addresses for the
+I<to> and I<from> fields. If you want to customize the sender, you'd
+better still fix the I<from> field and modify the I<reply-to> field
+only, as in the example above.
 
 
 =item ep-errhandler

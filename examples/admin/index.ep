@@ -1,7 +1,8 @@
 <ep-package name="HTML::EP::Locale">
 <html><head><title>
 <ep-language de="Administration" en="Administration"></title></head>
-<body><h1><ep-language de="Administration" en="Administration"></h1>
+<body bgcolor=#ffffff>
+<h1><ep-language de="Administration" en="Administration"></h1>
 <font size=-1>
 <ep-language language="de">
 <a href="index.ep?language=en">English</a>
@@ -54,6 +55,16 @@
     if it wasn't read for a given time (for example 24 hours). This
     system is administrated
     <a href="mail2group.ep?language=$_ep_language$">here</a>.
+    </ep-language>
+<li><ep-language language="de">
+    Die Verwaltung des WWW-Proxyservers
+    <a href="http://squid.nlanr.net">Squid</a> können Sie
+    <a href="squid.ep?language=$_ep_language$">hier</a> vornehmen.
+    </ep-language>
+    <ep-language language="en">
+    The administration of the WWW proxy server
+    <a href="http://squid.nlanr.net">Squid</a> is happening
+    <a href="squid.ep?language=$_ep_language$">here</a>.
     </ep-language>
 </ul>
 </body>

@@ -1,3 +1,10 @@
+1998-11-29  Jochen Wiedmann  <joe@ispsoft.de> (0.1117)
+
+	* lib/HTML/EP.pm (new): Added $self->{'_ep_config'}.
+	* lib/HTML/EP.pm (_ep_mail): Added debugging mode. Requested by
+          Michael Bauer (michael@h-net.com).
+	* Added lib/HTML/EP/Examples/Admin.pm and examples/admin/squid.ep.
+
 1998-11-04  Jochen Wiedmann  <joe@ispsoft.de> (0.1116)
 
 	* lib/HTML/EP.pm (_ep_input): Added type 's' (Set).

@@ -1,4 +1,4 @@
-^Makefile$
+^Makefile(\.old)?$
 ~$
 ^lib/HTML/EP/Config.pm$
 ^blib/

@@ -26,11 +26,12 @@ require URI::Escape;
 require HTML::Entities;
 require CGI;
 require Symbol;
+require HTML::EP::Config;
 
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1116';
+$HTML::EP::VERSION = '0.1117';
 
 
 %HTML::EP::BUILTIN_FORMATS = (
@@ -98,6 +99,7 @@ sub new ($;$) {
     $self->{'_ep_state'} = 1;
     $self->{'_ep_buf'} = '';
     $self->{'_ep_strict_comment'} = 0;
+    $self->{'_ep_config'} = $HTML::EP::Config::CONFIGURATION;
 
     if (!($self->{'cgi'} ||= CGI->new())) {
 	die "Cannot create CGI object: $!";
@@ -536,7 +538,7 @@ sub end ($$$) {
     }
 }
 
-sub init ($) { 1 }
+sub init { 1 }
 
 sub Stop ($) { my($self) = @_; $self->{_ep_stop} = 1; }
 
@@ -999,10 +1001,9 @@ sub _ep_mail ($$;$) {
     my $body = delete $attr->{body};
     my $host = (delete $attr->{mailserver});
     if (!$host) {
-	require HTML::EP::Config;
-	$host = HTML::EP::Config::CONFIGURATION->{'mailhost'} || '127.0.0.1';
+	$host = $self->{'_ep_config'}->{'mailhost'} || '127.0.0.1';
     }
-    my @options = ('Host' => $host);
+    my @options;
     if (!defined($body)) {
 	return undef;
     }
@@ -1030,12 +1031,19 @@ sub _ep_mail ($$;$) {
     while (($header, $val) = each %$attr) {
 	$msg->add($header, $val);
     }
+    require Net::SMTP;
     require Mail::Internet;
+    my $debug = $self->{'debug'};
+    if ($debug) {
+        $self->print("Making SMTP connection to $host.\n")
+    }
+    my $smtp = Net::SMTP->new($host, 'Debug' => $debug)
+        or die "Cannot open SMTP connection to $host: $!";
     my $mail = Mail::Internet->new([$self->ParseVars($body)], Header => $msg);
     $Mail::Util::mailaddress = $attr->{'from'}; # Ugly hack to prevent
                                                 # DNS lookup for 'mailhost'
                                                 # in Mail::Util::mailaddress().
-    $mail->smtpsend(@options);
+    $mail->smtpsend('Host' => $smtp, @options);
     '';
 }
 end_of__ep_mail

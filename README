@@ -297,7 +297,7 @@ DESCRIPTION
         `to' attribute should be used. Example:
 
             <ep-mail subject="Howdy!" from="joe@ispsoft.de"
-                     to="bill@whitehouse.gov">
+                     reply-to="joe@ispsoft.de" to="bill@whitehouse.gov">
                 Hello, Bill, old chap. How are you?
 
                 Yours sincerely,
@@ -307,13 +307,20 @@ DESCRIPTION
         You can still use EP variables in the E-mail body, for example the
         following works:
 
-            <ep-mail subject="Test" from="$cgi->email$" to="joe@ispsoft.de">
+            <ep-mail subject="Test" reply-to="$cgi->email$" to="joe@ispsoft.de"
+                     from="webmaster@www.mydomain.com">
                 Hello, Joe,
                 this e-mail was sent to you by $@cgi->name$.
             </ep-mail>
 
         But note that we suppress conversion into HTML format in the mail
         body! See the section on "Variables" below for details.
+
+        Recent sendmail versions are quite picky about validity of email
+        addresses. Thus it is highly recommended that you use valid
+        addresses for the *to* and *from* fields. If you want to customize
+        the sender, you'd better still fix the *from* field and modify the
+        *reply-to* field only, as in the example above.
 
     ep-errhandler
         This command advices EP, what to do in case of errors. See the

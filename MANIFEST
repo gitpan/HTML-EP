@@ -11,6 +11,7 @@ lib/HTML/EP/Locale.pm		Localization
 lib/HTML/EP/Session.pm		Session management
 lib/HTML/EP/Session/Cookie.pm	Cookie sessions
 lib/HTML/EP/Shop.pm		E-Commerce support
+lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration.
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
 t/errors.t			Error handling test
@@ -18,15 +19,16 @@ t/misc.t			Miscellaneous commands
 t/session.t			Session test
 t/shop.t			Shopping cart test
 t/vars.t			Variable handling test
-examples/admin/README		User administration (Docs)
-examples/admin/group.ep		User administration (Group management)
-examples/admin/index.ep		User administration (Menu)
-examples/admin/mail2group	User administration (Mail forwarder)
-examples/admin/mail2group.ep	User administration (Mail forwarder admin)
-examples/admin/rmgroup.ep	User administration (Group removal)
-examples/admin/rmuser.ep	User administration (User removal)
-examples/admin/user.ep		User administration (User managament)
-examples/admin/usersModified	Script for creating users and groups
+examples/admin/README		Firewall administration (Docs)
+examples/admin/group.ep		Firewall administration (Group management)
+examples/admin/index.ep		Firewall administration (Menu)
+examples/admin/mail2group	Firewall administration (Mail forwarder)
+examples/admin/mail2group.ep	Firewall administration (Mail forwarder admin)
+examples/admin/rmgroup.ep	Firewall administration (Group removal)
+examples/admin/rmuser.ep	Firewall administration (User removal)
+examples/admin/squid.ep		Firewall administration
+examples/admin/user.ep		Firewall administration (User managament)
+examples/admin/usersModified	Firewall administration (Backend)
 examples/edit.ep		Generic script for editing DBI tables
 examples/shop/README		Shopping cart (Docs)
 examples/shop/admin/index.ep	Shopping cart (Main administration page)

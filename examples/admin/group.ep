@@ -53,7 +53,7 @@
 	foreach my $member (split(",", $group->{'MEMBERS'}->{'val'})) {
 	    $member =~ s/^\s+//;
 	    $member =~ s/\s+$//;
-	    if ($member) {
+	    if ($member  &&  $member !~ /\@/) {
 		$sth = $dbh->prepare("SELECT * FROM USERS WHERE USER = "
 				     . $dbh->quote($member));
 		$sth->execute();

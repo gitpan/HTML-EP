@@ -23,7 +23,6 @@ require 5.004;
 use strict;
 
 require HTML::EP;
-require HTML::EP::Config;
 
 
 package HTML::EP::Locale;
@@ -49,7 +48,7 @@ sub init ($) {
 	    if ($self->{env}->{PATH_TRANSLATED} =~ /\.(\w+)\.\w+$/) {
 		$lang = $1;
 	    } else {
-		$lang = $HTML::EP::Config::CONFIGURATION->{'default_language'};
+		$lang = $self->{'_ep_config'}->{'default_language'};
 	    }
 	}
 	$self->{_ep_language} = $lang;

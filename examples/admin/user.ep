@@ -148,7 +148,7 @@
     $self->{'shells'} =	[
 	 { 'shell' => '/bin/deny', 'status' => 'Nur Mailaccount' },
 	 { 'shell' => '/bin/ftpok', 'status' => 'Mail und FTP' },
-	 { 'shell' => '/bin/deny', 'status' => 'Administrator' }
+	 { 'shell' => '/bin/bash', 'status' => 'Administrator' }
 	 ];
     '';
 </ep-perl>
