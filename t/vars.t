@@ -3,7 +3,7 @@
 use strict;
 
 
-print "1..15\n";
+print "1..17\n";
 
 require HTML::EP;
 
@@ -38,13 +38,14 @@ my $dbh;
 eval { require DBI; $dbh = DBI->connect("DBI:CSV:") };
 
 
-my $self = { a => 1,
-             b => "Obelix GmbH & Co KG",
-             t_hash_ref => { f => 'foo', g => 'bar' },
-             t_array_ref => [ 1, 1.5, 'i' ],
-             dbh => $dbh
-};
-bless($self, 'HTML::EP');
+$ENV{'REQUEST_METHOD'} = 'GET';
+my $self = HTML::EP->new();
+$self->{'a'} = 1;
+$self->{'b'} = "Obelix GmbH & Co KG";
+$self->{'t_hash_ref'} = { f => 'foo', g => 'bar' };
+$self->{'t_array_ref'} = [ 1, 1.5, 'i' ];
+$self->{'dbh'} = $dbh;
+$self->{'empty'} = '';
 
 Test2($self->ParseVars('$a$'), '1', "Simple strings (HTML encoded)\n");
 Test2($self->ParseVars('$%a$'), '1', "Simple strings (HTML encoded)\n");
@@ -77,3 +78,6 @@ Test2($self->ParseVars('$t_hash_ref->g$'), 'bar', "Hash dereferencing\n");
 Test2($self->ParseVars('$t_array_ref->0$'), '1', "Array dereferencing\n");
 Test2($self->ParseVars('$t_array_ref->1$'), '1.5', "Array dereferencing\n");
 Test2($self->ParseVars('$t_array_ref->2$'), 'i', "Array dereferencing\n");
+Test2($self->ParseVars('$&NBSP->empty$'), '&nbsp;', "Custom format: NBSP\n");
+Test2($self->ParseVars('$&NBSP->b$'), 'Obelix GmbH & Co KG',
+                       "Custom format: NBSP\n");

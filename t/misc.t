@@ -403,8 +403,8 @@ _END_OF_HTML
 
 
 my $cfg;
-if (-f "configuration") {
-    $cfg = do "configuration";
+if (-f "lib/HTML/EP/Config.pm") {
+    $cfg = do "lib/HTML/EP/Config.pm";
 }
 if (!$cfg->{email}  ||  $cfg->{email} eq 'none'  ||  !$cfg->{mailhost}) {
     Test(1);

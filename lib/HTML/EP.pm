@@ -30,8 +30,18 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1109';
+$HTML::EP::VERSION = '0.1111';
 
+
+%HTML::EP::BUILTIN_FORMATS = (
+    'NBSP' => sub {
+	my $self = shift; my $str = shift;
+	if (!defined($str)  ||  $str eq '') {
+	    $str = '&nbsp;';
+	}
+	$str;
+    }
+);
 
 %HTML::EP::BUILTIN_METHODS = (
     'ep-comment' =>    { method => '_ep_comment',
@@ -82,6 +92,7 @@ sub new ($;$) {
     my $self = $attr ? {%$attr} : {};
     $self->{'_ep_stack'} = [];
     $self->{'_ep_funcs'} ||= { %HTML::EP::BUILTIN_METHODS };
+    $self->{'_ep_custom_formats'} ||= { %HTML::EP::BUILTIN_FORMATS };
     $self->{'_ep_output'} = '';
     $self->{'_ep_state'} = 1;
     $self->{'_ep_buf'} = '';
@@ -976,8 +987,13 @@ end_of__ep_elseif
 _ep_mail => <<'end_of__ep_mail',
 sub _ep_mail ($$;$) {
     my($self, $attr, $func) = @_;
+
     my $body = delete $attr->{body};
-    my $host = (delete $attr->{mailserver}) || '~mailhost~';
+    my $host = (delete $attr->{mailserver});
+    if (!$host) {
+	require HTML::EP::Config;
+	$host = HTML::EP::Config::CONFIGURATION->{'mailhost'} || '127.0.0.1';
+    }
     my @options = ('Host' => $host);
     if (!defined($body)) {
 	return undef;
@@ -1029,6 +1045,16 @@ sub _ep_include ($$;$) {
 	if ($@ =~ /_ep_exit, ignore/) {
 	    $output = $parser->{'_ep_output'};
 	} else {
+	    my $type = 'system';
+	    if ($self->{'_ep_err_type'} = $parser->{'_ep_err_type'}) {
+		$type = 'user';
+	    }
+	    if (defined(my $file = $parser->{"_ep_err_file_$type"})) {
+		$self->{"_ep_err_file_$type"} = $file;
+	    }
+	    if (defined(my $msg = $parser->{"_ep_err_msg_$type"})) {
+		$self->{"_ep_err_msg_$type"} = $msg;
+	    }
 	    die $@;
 	}
     }

@@ -1,3 +1,16 @@
+1998-10-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1111)
+
+	* ep-error mismatched user and system error.
+ 	* ep-error was not looking in DOCUMENT_ROOT.
+ 	* Added optional removal of selfloader code.
+	* Added HTML::EP::Config and Bundle::HTML::EP.
+	* Added debughosts and ok_templates to Config.
+
+1998-10-11  Jochen Wiedmann  <joe@ispsoft.de> (0.1110)
+  
+      * lib/HTML/EP/Locale.pm: Made default language configurable.
+      * Added $&NBSP->var$
+
 1998-10-06  Jochen Wiedmann  <joe@ispsoft.de> (0.1109)
 
 	* EP.pm.in (_ep_mail): Requires MailTools 1.12 now.

@@ -83,21 +83,33 @@ END_OF_HTML
 my $self;
 eval {
     require HTML::EP;
+    require HTML::EP::Config;
     $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
     $self = HTML::EP->new();
 };
 if ($@) {
     SimpleError(undef, $@);
 }
+my $path = $ENV{'PATH_TRANSLATED'};
+my $ok_templates = $HTML::EP::Config::CONFIGURATION->{'ok_templates'};
+if ($ok_templates  &&  $path !~ /$ok_templates/) {
+    die "Access to $path forbidden by ok_templates";
+}
+if ($path =~ /(.*)\//) {
+    chdir $1;
+}
 if ($self->{cgi}->param('debug')) {
-    $| = 1;
-    print "content-type: text/plain\n\n";
-    print "Entering debugging mode; list of input values:\n";
-    my $p;
-    foreach $p ($self->{cgi}->param()) {
-        print " $p = ", $self->{cgi}->param($p), "\n";
+    my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
+    if (!$debughosts  ||  $ENV{'REMOTE_HOST'} =~ /$debughosts/) {
+	$| = 1;
+	print "content-type: text/plain\n\n";
+	print "Entering debugging mode; list of input values:\n";
+	my $p;
+	foreach $p ($self->{cgi}->param()) {
+	    print " $p = ", $self->{cgi}->param($p), "\n";
+	}
+	$self->{debug} = 1;
     }
-    $self->{debug} = 1;
 }
 my $output = eval { $self->Run(); };
 if ($@) {
@@ -106,8 +118,15 @@ if ($@) {
     } else {
 	my $errmsg;
 	my $errfile = $self->{_ep_err_type} ?
-	    $self->{_ep_err_file_system} : $self->{_ep_err_file_user};
+	    $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
 	if ($errfile) {
+	    my $derrfile = $self->{'env'}->{'DOCUMENT_ROOT'} . $errfile;
+	    if ($self->{'debug'}) {
+		$self->print("Error type = " . $self->{_ep_err_type} .
+			     ", error file = $errfile" .
+			     ", derror file = $derrfile\n");
+	    }
+	    if (-f $derrfile) { $errfile = $derrfile }
 	    eval {
 		require Symbol;
 		my $fh = Symbol::gensym();

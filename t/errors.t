@@ -3,9 +3,16 @@
 use strict;
 
 
+require HTML::EP;
+require HTML::EP::Config;
+
+if (($HTML::EP::Config::CONFIGURATION->{'ok_templates'} =  # -w
+     $HTML::EP::Config::CONFIGURATION->{'ok_templates'})  ne '\.ep$') {
+    print "1..0\n";
+    exit 0;
+}
 print "1..3\n";
 
-require HTML::EP;
 
 {
     my $numTests = 0;
@@ -41,12 +48,12 @@ sub Test3($$;@) {
     {
 	local($|) = 1;
 	my $fh = Symbol::gensym();
-	if (!open($fh, ">foo")) { die "Cannot create file 'foo': $!"; }
+	if (!open($fh, ">foo.ep")) { die "Cannot create file 'foo.ep': $!"; }
 	if (!print $fh ($a) || !close($fh)) {
-	    die "Error while writing 'foo': $!";
+	    die "Error while writing 'foo.ep': $!";
 	}
     }
-    $ENV{PATH_TRANSLATED} = 'foo';
+    $ENV{PATH_TRANSLATED} = 'foo.ep';
     $ENV{SERVER_ADMIN} = 'root@ispsoft.de';
     my $inc = '';
     my $i;
@@ -67,7 +74,6 @@ sub Test3($$;@) {
 
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING} = '';
-
 
 my $parser = HTML::EP->new();
 Test($parser, "Creating the parser.\n");
@@ -109,4 +115,4 @@ END_OF_HTML
 Test3($input, $output, "Error template.\n");
 
 
-unlink "foo";
+unlink "foo.ep";

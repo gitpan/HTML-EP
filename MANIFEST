@@ -2,8 +2,9 @@ ChangeLog			Version history
 MANIFEST			This file
 Makefile.PL			Makefile generator
 README				I mean it :-)
-EP.pm.in			Main module
 lib/Apache/EP.pm		Modules for mod_perl support
+lib/Bundle/HTML/EP.pm		Bundle for CPAN installation
+lib/HTML/EP.pm			Main module
 lib/HTML/EP.pod			Docs
 lib/HTML/EP/Locale.pm		Localization
 lib/HTML/EP/Session.pm		Session management

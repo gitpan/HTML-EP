@@ -28,6 +28,11 @@ require DBI;
 require HTML::EP;
 require Symbol;
 
+# Pull in HTML::EP and the helper packages
+require HTML::EP;
+require HTML::EP::Locale;
+require HTML::EP::Session;
+
 
 package Apache::EP;
 
@@ -97,7 +102,12 @@ sub handler ($$) {
     my $self = HTML::EP->new();
     $self->{_ep_r} = $r;
     if ($self->{cgi}->param('debug')) {
-	$self->{'debug'} = 1;
+	my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
+	if (!$debughosts  ||  $ENV{'REMOTE_HOST'} =~ /$debughosts/) {
+	    $self->{'debug'} = 1;
+	}
+    }
+    if ($self->{'debug'}) {
 	$r->content_type('text/plain');
 	$r->status(Apache::Constants::OK());
 	$r->send_http_header();
@@ -122,8 +132,10 @@ sub handler ($$) {
 	} else {
 	    my $errstr = $@;
 	    my $errfile = $self->{_ep_err_type} ?
-		$self->{_ep_err_file_system} : $self->{_ep_err_file_user};
+		$self->{_ep_err_file_user} : $self->{_ep_err_file_system};
 	    my $errmsg;
+	    my $derrfile = $self->{'env'}->{'DOCUMENT_ROOT'} . $errfile;
+	    if (-f $derrfile) { $errfile = $derrfile }
 	    if ($errfile) {
 		eval {
 		    my $fh = Symbol::gensym();

@@ -22,9 +22,22 @@
 require 5.004;
 use strict;
 
+require HTML::EP::Config;
+
+
 package HTML::EP::Locale;
 
 @HTML::EP::Locale::ISA = qw(HTML::EP);
+
+my $mod_perl = $ENV{'MOD_PERL'} ? 1 : 0;
+if ($mod_perl) {
+    $HTML::EP::BUILTIN_METHODS{'ep-language'} = {
+	method => '_ep_language',
+	default => 'string'
+	};
+    $HTML::EP::BUILTIN_FORMATS{'DM'} = \&_format_DM;
+}
+
 
 sub init ($) {
     my($self) = @_;
@@ -35,24 +48,26 @@ sub init ($) {
 	    if ($self->{env}->{PATH_TRANSLATED} =~ /\.(\w+)\.\w+$/) {
 		$lang = $1;
 	    } else {
-		$lang = 'de';
+		$lang = $HTML::EP::Config::CONFIGURATION->{'default_langauge'};
 	    }
 	}
 	$self->{_ep_language} = $lang;
-	$self->{_ep_funcs}->{'ep-language'} = { method => '_ep_language',
-						default => 'string' },
-	my $formats = $self->{'_ep_custom_formats'};
-	if (!$formats) {
-	    $formats = $self->{'_ep_custom_formats'} = {};
+ 	if (!$mod_perl) {
+ 	    my $funcs = $self->{_ep_funcs};
+ 	    $funcs->{'ep-language'} = {
+ 		method => '_ep_language',
+ 		default => 'string'
+ 		};
+ 	    my $formats = $self->{'_ep_custom_formats'};
+ 	    $formats->{'DM'} = \&_format_DM;
 	}
-	$formats->{'DM'} = \&_format_DM;
     }
 }
 
 
 sub _ep_language ($$;$) {
     my($self, $attr) = @_;
-    my $language = $self->{'_ep_language'} || 'de';
+    my $language = $self->{'_ep_language'};
     my $result;
     if (my $lang = $attr->{'language'}) {
 	if (!defined($attr->{'string'})) { return undef; }

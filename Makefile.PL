@@ -60,25 +60,23 @@ sub CheckModule ($;$$) {
     return 1;
 }
 
-if (!$ENV{CREATE_ONLY}) {
-    my $ok = 1;
-    $ok &&= CheckModule("Data::Dumper");
-    $ok &&= CheckModule("Storable");
-    $ok &&= CheckModule("LWP", undef, "libwww");
-    $ok &&= CheckModule("Mail::Internet", 1.12, "MailTools");
+my $ok = 1;
+$ok &&= CheckModule("Data::Dumper");
+$ok &&= CheckModule("Storable");
+$ok &&= CheckModule("LWP", undef, "libwww");
+$ok &&= CheckModule("Mail::Internet", 1.12, "MailTools");
 
-    if (!$ok) {
-	print <<"MESSAGE";
+if (!$ok) {
+    print <<"MESSAGE";
 
 Missing modules are available from any CPAN mirror, for example
 	ftp://ftp.funet.fi/pub/languages/perl/CPAN/modules/by-module
 
 MESSAGE
-    }
+}
 
-    if (!$ok) {
-	exit 1;
-    }
+if (!$ok) {
+    exit 1;
 }
 
 
@@ -98,47 +96,45 @@ MSG
 
 
 my $cfg = {};
-my $create = exists($ENV{CREATE_ONLY});
-if (-f "configuration") {
-    $cfg = do "configuration";
+if (-f "lib/HTML/EP/Config.pm") {
+    $cfg = do "lib/HTML/EP/Config.pm";
 } else {
-    $cfg->{email} = prompt("Enter an email address for sending test mails: ",
-			   "none");
-    $cfg->{mailhost} =
-	prompt("Enter a mail server for sending mails: ", "127.0.0.1");
+    eval { require HTML::EP::Config };
+    my $oldcfg = $HTML::EP::Config::CONFIGURATION || {};
+
+    my $email = $oldcfg->{'email'} || "none";
+    $cfg->{'email'} =
+	prompt("\nEnter an email address for sending test mails: ", $email);
+    my $mailhost = $oldcfg->{'mailhost'} || "127.0.0.1";
+    $cfg->{'mailhost'} =
+	prompt("\nEnter a mail server for sending mails: ", $mailhost);
+    my $debughosts = $oldcfg->{'debughosts'} ||	'^127\.0\.0\.1$';
+    $cfg->{'debughosts'} =
+        prompt("\nSecurity: Enter a regular expression for hosts that may"
+               . " enter debugging\nmode: ", $debughosts);
+    my $ok_templates = $oldcfg->{'ok_templates'} || '\.ep$';
+    $cfg->{'ok_templates'} =
+        prompt("\nSecurity: Enter a regular expression for files that may be"
+               . " processed by\nEP: ", $ok_templates);
+    my $optimization = $oldcfg->{'optimization'} || "n";
+    $cfg->{optimization} =
+ 	(prompt(q[
+The HTML::EP module can be optimized for fast compilation or fast startup.
+The former is recommended in traditional CGI binaries, the latter for
+mod_perl. Shall I optimize for fast startup, aka mod_perl? ], "y") =~ /y/) ?
+        "startup" : "compilation";
+    my $language = $oldcfg->{'default_language'} || "de";
+    $cfg->{'default_language'} =
+	prompt("\nEnter the default language, for example de (German) or"
+	       . " en (English): ", $language);
+
     my $cfgdump = Data::Dumper->new([$cfg], ['CONFIGURATION']);
-    if (!open(FILE, ">configuration")  ||
-	!(print FILE ($cfgdump->Dump()))  ||
+    if (!open(FILE, ">lib/HTML/EP/Config.pm")  ||
+	!(print FILE ("package HTML::EP::Config;\n", $cfgdump->Dump()))  ||
 	!close(FILE)) {
 	die "Cannot create config file: $!";
     }
-    $create = 1;
 }
-
-if ($create) {
-    my $ref;
-    foreach $ref (['EP.pm.in', 'lib/HTML/EP.pm']) {
-	printf("Creating %s from %s ... ", $ref->[1], $ref->[0]);
-	if (!open(FILE, "<" . $ref->[0])) {
-	    die "Cannot open " . $ref->[0] . ": $!";
-	}
-	my $contents;
-	{ local $/; $contents = <FILE>; }
-	if (!defined($contents)  ||  !close(FILE)) {
-	    die "Error while reading " . $ref->[0] . ": $!";
-	}
-	$contents =~ s/\~(\w+)\~/$cfg->{$1}/eg;
-	if (!open(FILE, ">" . $ref->[1])
-	    ||  !(print FILE ($contents))
-	    ||  !close(FILE)) {
-	    die "Error while creating " . $ref->[1] . ": $!";
-	}
-	print "Ok.\n";
-    }
-}
-    
-
-if ($ENV{CREATE_ONLY}) { exit 0; }
 
 
 my %opts = (
@@ -147,9 +143,9 @@ my %opts = (
     'EXE_FILES'    => [ 'ep.cgi' ],
     'dist'         => { 'SUFFIX'       => ".gz",
 			'DIST_DEFAULT' => 'all tardist',
-			'COMPRESS'     => "gzip -9f" },
+			'COMPRESS'     => "gzip -9vf" },
     'clean'        => { 'FILES' => 'ep.cgi' },
-    'realclean'    => { 'FILES' => 'configuration lib/HTML/EP.pm' },
+    'realclean'    => { 'FILES' => 'lib/HTML/EP/Config.pm' },
 );
 
 if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
@@ -165,13 +161,10 @@ package MY;
 
 sub postamble {
     <<"END_OF_POSTAMBLE";
-pm_to_blib: README lib/HTML/EP.pm
+pm_to_blib: README
 
 README: lib/HTML/EP.pod
 	perldoc -t lib/HTML/EP.pod >README
-
-lib/HTML/EP.pm: EP.pm.in
-\t$^X -e '\$\$ENV{CREATE_ONLY} = 1; do "Makefile.PL"'
 
 END_OF_POSTAMBLE
 }

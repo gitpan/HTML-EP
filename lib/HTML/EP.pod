@@ -52,17 +52,6 @@
 
 THIS IS ALPHA SOFTWARE. It is *only* 'Alpha' because the interface (API) is
 not finalised. The Alpha status does not reflect code quality or stability.
-In particular the following things might change without further notice:
-
-=over 8
-
-=item
-
-The C interface of introducing own methods. This depends on whether I
-need changes for inserting the module into mod_perl. See L<"TODO">
-below.
-
-=back
 
 
 =head1 DESCRIPTION
@@ -146,11 +135,23 @@ for example
 
        ftp://ftp.funet.fi/pub/languages/perl/CPAN/modules/by-module
 
+Note that you don't need to install these manually, the CPAN module will
+help you. See the L<"Automatic Installation"> below.
 
-=head2 Installation
 
-Installing this module (and the prerequisites from above) is quite simple.
-You just fetch the archive, extract it with
+=head2 Automatic Installation
+
+Installing this module (and the prerequisites from above) is quite simple,
+if you have the CPAN module available and network access, you might
+try an automatic installation:
+
+	perl -MCPAN -e 'CPAN->install("Bundle::HTML::EP")'
+
+
+=head2 Manual Installation
+
+If automatic installation doesn't work, you just fetch the archive, extract
+it with
 
     gzip -cd HTML-EP-0.1000.tar.gz | tar xf -
 
@@ -934,46 +935,35 @@ It is quite easy to write own methods.
 
 
 =head2 Single-line extensions
-
-For example, suggest you want a method for accessing environment
-variables:
-
-    <ep-env var="e">
-
-The idea is to create a variable C<e>, which is a hash ref of the
-current environment variables, so that you can use
-
-    $e->REMOTE_AGENT$
-
-for accessing the name of the users browser.
-
+  
+For example, suggest you want a method for setting EP variables:
+  
+    <ep-set var="e" value=1>
+  
+Once the variable is created, you can access it via
+  
+   $e$
+  
 This can be done like this:
-
+  
     <ep-perl package="HTML::EP">
-    my $self = $_;
-
-    # Write a handler for ep-env:
-    sub env ($$) {
-        my($self, $attr) = @_;
-        my $var = $attr->{var};
-	$self->{$var} = {%ENV};
-	'';
-    }
-
-    # Register the handler in the list of handlers:
-    $self->{_ep_funcs}->{'ep-env'} = { method => 'env' };
-    # Return an empty string:
-    '';
+      # Write a handler for ep-env:
+      sub _ep_set ($$) {
+          my($self, $attr) = @_;
+	  my $var = $attr->{'var'};
+	  my $val = $attr->{'value'};
+	  $self->{$var} = $val;
+	  '';
+      }
+  
+      # Return an empty string:
+      '';
     </ep-perl>
-
-The I<method> attribute of the handler tells the EP module to call
-
-    $_->env($attr);
-
-if the C<ep-env> tag is used. The argument C<$attr> is a hash ref of
-the tags attributes. Note the use of the I<package> attribute: By
-default the C<ep-perl> code is executed in a I<Safe> compartment.
-See L<Safe(3)>.
+  
+Note that we used the name B<_ep_set>: By default the EP module takes
+the method name (B<ep-env> in out case) translates all hyphens to
+underscores and adds a leading underscore. We'll see in the next
+section how you can override this behaviour.
 
 
 =head2 Multi-line extensions
@@ -996,7 +986,7 @@ Here it is:
 
     <ep-perl package="HTML::EP">
     # Write a handler for ep-file:
-    sub file ($$) {
+    sub _ep_file ($$) {
         my($self, $attr) = @_;
 	my $contents = $attr->{contents};
 	if (!defined($contents)) { # Multiline method, no "contents"
@@ -1013,19 +1003,25 @@ Here it is:
     }
     # Register the handler in the list of handlers
     # Note the use of the "default" attribute:
-    $self->{_ep_funcs}->{'ep-env'} = { method => 'env',
+    $self->{_ep_funcs}->{'ep-file'} = { method => '_ep_file',
                                        default => 'contents' };
     # Return an empty string:
     '';
     </ep-perl>
 
-In other words: The method gets called twice, once for C<E<lt>ep-fileE<gt>>
-and once for C<E<lt>/ep-fileE</gt>>. If it thinks, it should enter multi-line
-mode (if the I<contents> attribute is not set, it returns C<undef>. In that
-case EP is looking at the I<default> attribute of the handler which is
-telling, that the lines between C<E<lt>ep-fileE<gt>> and C<E<lt>/ep-fileE<gt>>
-ought to be written into the I<contents> attribute. Thus this attribute
-exists, if the method is called a second time.
+The main difference to the previous example is that we install a handler
+description in B<$self-E<gt>{'_ep_funcs'}>. This handler description is
+a hash ref with the keys I<method> (the HTML::EP method to execute,
+by default _ep_file, so we could well omit it here) and the I<default>
+attribute, which is used as follows:
+
+If EP finds the C<E<lt>ep-fileE<gt>>, it calls _ep_file for the first
+time. The method checks, whether a I<contents> value is given. If so,
+it starts working immediately. If not, it returns an undefined value.
+This advices EP that the method is waiting for a C<E<lt>/ep-fileE</gt>>.
+Thus EP enters multi-line mode, collects the following input and then
+calls _ep_file again, this time by setting the handlers I<default>
+attribute.
 
 Note the use of the I<Symbol> package when accessing files: *Never* use
 global handles like
@@ -1035,7 +1031,63 @@ global handles like
 as this might break future multithreading code!
 
 
-=head2 Selfloaded methods
+=head2 External extensions
+
+So far we have discussed only minor extensions that we did install as
+part of HTML::EP. However, this is somewhat dangerous with mod_perl:
+Suggest you have multiple virtual hosts. It might happen, that virtual
+host www.foo.com defines a method ep-file, but www.bar.net defines
+another. Thus we'd have the classical name clash.
+
+To prevent such a namespace pollution, EP supports external extensions
+with an inheritage model that is borrowed from Perl. Suggest we write
+a Shop extension. Of course this extension borrows from HTML::EP::Session.
+Thus we have the following class design:
+
+    Shop  ---isa--->  HTML::EP::Session  ---isa--->  HTML::EP
+
+We start writing our Shop extension like any other Perl package:
+ 
+    package Shop;
+    @Shop::ISA = qw(HTML::EP::Session); # HTML::EP::Session inherits
+                                        # from HTML::EP
+
+    sub _ep_shop_session {
+        my($self, $attr) = @_;
+	# Initialize the session
+	...
+	'';
+    }
+
+    sub init {
+	my $self = shift;
+	if (!$self->{'_ep_shop_initialized'}) {
+	    $self->SUPER::init();
+	    $self->{'_ep_funcs'}->{'ep-shop-session'} = {
+		'method' => '_ep_shop_session'
+		};
+	    $self->{'_ep_shop_initialized'} = 1;
+	}
+    }
+ 
+In the HTML page we load this package as follows:
+
+    <ep-package name="Shop">
+    <ep-shop-session>
+
+This will do a B<require Shop> and bless the object B<$self> into the
+class I<Shop> and call B<$self->init()>. Note that we allow the init
+method to be called more than once, this is important for stacking
+packages.
+
+By default packages are loaded from Perl's system directories. You
+can use the attribute I<lib> to add private directories to the library
+search path. This can be relative to the servers document root, as in
+
+    <ep-package name="Shop" lib="/perl-lib">
+
+
+=head2 Selfloader methods
 
 In the above examples the extension methods have been compiled immediately.
 This is not always a good idea: For example the C<ep-mail> method is
@@ -1061,50 +1113,6 @@ example:
 
 The advantage is that you have the method available, but the performance
 penalty of loading it is almost omitted, if the method is not used.
-
-
-=head2 Namespace pollution
-
-So far extensions are inserted at run time only, usually by loading them
-from external files. For example you might create extensions for building
-a WWW shop and put them in, say, C<shop.lib>.
-
-As soon as it is possible to make extensions permanent (with mod_perl or
-an HTML::EP server) and extensions will be loaded at startup, there will
-be more and more of such extension files. Experience shows, that namespace
-pollution will finally become a problem. For example, any virtual Web
-server might have a completely different method C<ep-buttons> for
-inserting an automatically generated button frame.
-
-Thus I propose to use a package model inherited from Perl's package
-model, and start using it now:
-
-If you create a shop extension, put it into a separate package,
-C<HTML::EP::Shop>, say. When working with the extension, use
-
-    <ep-package name="HTML::EP::Shop" isa="HTML::EP">
-
-as the very first line, so that your Parser object becomes blessed into
-the Shop package. And let your shop extension file look like this:
-
-    use vars qw(@ISA);
-    @ISA = qw(HTML::EP);
-
-    # Define first extension method
-    ...
-
-    # Define second extension method
-    ...
-
-Note that this allows inheritage! Currently the extension file has to
-be loaded with
-
-    <ep-perl package="HTML::EP::Shop" src="shop.lib">
-
-but this will change in the future. The I<isa> attribute can be omitted
-and defaults to C<HTML::EP>. Otherwise it is a blank separated list
-of package names, just like @ISA is.
-
 
 
 =head1 PERFORMANCE CONSIDERATIONS
