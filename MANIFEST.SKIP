@@ -1,0 +1,7 @@
+^Makefile$
+~$
+^lib/HTML/EP/Config.pm$
+^blib/
+^ep.cgi$
+^pm_to_blib$
+^HTML-EP-\d+\.\d+

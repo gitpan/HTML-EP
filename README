@@ -409,7 +409,10 @@ DESCRIPTION
         If you have big result tables, you might prefer DBI's
         *fetchrow_arrayref* method over creating hash refs, because arrays
         are created faster than hash refs. This is achieved by setting the
-        attribute *resulttype* to array. The default is hash.
+        attribute *resulttype* to array. The default is hash. Other
+        resulttypes are *single_hash* and *single_array*: If your query will
+        return at most a single element, then the result variable will
+        contain the first row (or an undefined value) and not an array.
 
         Sometimes you don't want to retrieve the complete result table. In
         that case you can use the attributes *startat* and *limit*. For
@@ -494,9 +497,23 @@ DESCRIPTION
             };
 
         In general column names beginning with *address* will be splitted
-        into `prefix_type_suffix', the type being either 't' for text or 'n'
-        for number. The idea is generating SQL queries automatically out of
-        the `address' variable. This task is supported by the *sqlquery*
+        into `prefix_type_suffix', the type being one of
+
+    t           Text columns (CHAR, VARCHAR, BINARY, or whatever), that will be
+                quoted using the $self->{'dbh'}->quote() method.
+
+    n           Numeric columns (INTEGER, REAL, ...) that will be left untouched
+
+    dd
+    dm
+    dy          Day, month and year of a date. The combined fields will be
+                quoted as 'yyyy-mm-dd'.
+
+    s           Set columns as created using MultiSelect boxes; the selected
+                values will be used for creating a comma separated string.
+
+        The idea is generating SQL queries automatically out of the
+        `address' variable. This task is supported by the *sqlquery*
         attribute:
 
             <ep-database dsn="DBI:mysql:test">

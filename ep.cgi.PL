@@ -98,19 +98,20 @@ if ($ok_templates  &&  $path !~ /$ok_templates/) {
 if ($path =~ /(.*)\//) {
     chdir $1;
 }
-if ($self->{cgi}->param('debug')) {
+my $cgi = $self->{'cgi'};
+if ($cgi->param('debug')) {
     my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
-    if (!$debughosts  ||  $ENV{'REMOTE_HOST'} =~ /$debughosts/) {
+    if (!$debughosts  ||  $ENV{'REMOTE_ADDR'} =~ /$debughosts/) {
 	$| = 1;
 	print "content-type: text/plain\n\n";
 	print "Entering debugging mode; list of input values:\n";
 	my $p;
-	foreach $p ($self->{cgi}->param()) {
-	    print " $p = ", $self->{cgi}->param($p), "\n";
+	foreach $p ($cgi->param()) {
+	    print " $p = ", $cgi->param($p), "\n";
 	}
 	$self->{debug} = 1;
     } else {
-	print STDERR ("Debugging not permitted from ", $ENV{'REMOTE_HOST'},
+	print STDERR ("Debugging not permitted from ", $ENV{'REMOTE_ADDR'},
 		      ", restricted to $debughosts\n");
     }
 }
@@ -120,6 +121,7 @@ if ($@) {
 	$output = $self->{'_ep_output'};
     } else {
 	my $errmsg;
+	my $errstr = $@;
 	my $errfile = $self->{_ep_err_type} ?
 	    $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
 	if ($errfile) {
@@ -144,12 +146,13 @@ if ($@) {
 	    $errmsg = $self->{_ep_err_type} ?
 		$self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
 	}
-	SimpleError($errmsg, $@);
+	SimpleError($errmsg, $errstr);
     }
 }
 
 if (!$self->{_ep_stop}) {
-    print $self->{cgi}->header(), $output;
+    print($cgi->header('-cookie' => [values %{$self->{'_ep_cookies'}}]),
+	  $output);
 }
 
 exit 0;

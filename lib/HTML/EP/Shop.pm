@@ -132,6 +132,7 @@ sub _ep_shop_download {
     my $cgi = $self->{'cgi'};
     my $dbh = $self->{'dbh'};
     my $table = $attr->{'table'} || die "Missing table name";
+    my $removeId = $attr->{'removeid'} || 1;
     my $csv = Text::CSV_XS->new
 	({'binary' => 1,
 	  'eol' => "\r\n",
@@ -141,11 +142,20 @@ sub _ep_shop_download {
     my $sth = $dbh->prepare("SELECT * FROM $table");
     $sth->execute();
     $self->print($cgi->header(-type => 'text/plain'));
-    if ($self->{'debug'}) {
-	$self->print("Names = ", join(", ", @{$sth->{'NAME'}}), "\n");
+    my $names = [@{$sth->{'NAME'}}];
+    if ($removeId) {
+	shift @$names;
     }
-    $csv->print($self, [@{$sth->{'NAME'}}]);
+    if ($self->{'debug'}) {
+	$self->print("Names = ", join(", ", @$names), "\n");
+    }
+    $csv->print($self, [@$names]);
     while (my $ref = $sth->fetchrow_arrayref()) {
+	if ($removeId) {
+	    my @row = @$ref;
+	    shift @row;
+	    $ref = \@row;
+	}
 	$csv->print($self, $ref);
     }
 
@@ -154,12 +164,63 @@ sub _ep_shop_download {
 }
 
 
+sub _ep_shop_prefs_write {
+    my $self = shift; my $attr = shift;
+    my $table = $attr->{'table'} || 'prefs';
+    my $pvar = $attr->{'var'} || 'prefs';
+    my $prefs = $self->{$pvar} || die "No prefs set in variable $pvar";
+    my $tvar = $attr->{'tvar'} || 'prefs';
+    my $dbh = $self->{'dbh'} || die "Missing database handle";
+
+    if ($self->{'debug'}) {
+	$self->print("Saving prefs: ", join(" ", %$prefs), "\n");
+    }
+
+    my $uquery = "UPDATE $table SET val = ? WHERE var = "
+	. $dbh->quote($tvar);
+    my $freezed_prefs = Storable::nfreeze($prefs);
+    eval {$dbh->do($uquery, undef, $freezed_prefs) };
+    if ($@) {
+	my $error = $@;
+	my $cquery = "CREATE TABLE $table ("
+	           . " var VARCHAR(32) NOT NULL,"
+		   . " val BLOB NOT NULL)";
+	if (eval { $dbh->do($cquery) }) {
+	    $cquery = "INSERT INTO $table VALUES (" . $dbh->quote($tvar)
+		. ", ?)";
+	    eval { $dbh->do($cquery, undef, $freezed_prefs) };
+	}
+	if ($@) {
+	    die "While updating: Catched error\n$error\n" .
+		"Update query was: $uquery\n" .
+		"While inserting: Catched error\n$@\n" .
+		"Insert query was: $cquery\n";
+	}
+    }
+    '';
+}
+
 sub _ep_shop_prefs_read {
     my $self = shift; my $attr = shift;
     my $cgi = $self->{'cgi'};
     my $dbh = $self->{'dbh'};
     my $table = $self->{'table'} || 'prefs';
-    my $prefs;
+    my $pvar = $attr->{'var'} || 'prefs';
+    my $tvar = $attr->{'tvar'} || 'prefs';
+    my $prefs = $self->{$pvar};
+
+    # Read Prefs
+    if (!$prefs) {
+	my $ref;
+	eval {
+	    my $sth = $dbh->prepare("SELECT val FROM prefs WHERE var = ?");
+	    $sth->execute($tvar);
+	    $ref = $sth->fetchrow_arrayref();
+	};
+	$prefs = $ref ? Storable::thaw($ref->[0]) : {};
+    }
+
+    $self->{$pvar} = $prefs;
     if ($attr->{'write'}  &&  defined($cgi->{'prefs_company'})) {
 	# Save Prefs
 	foreach my $var ($cgi->param()) {
@@ -167,28 +228,9 @@ sub _ep_shop_prefs_read {
 		$prefs->{$1} = $cgi->param($var);
 	    }
 	}
-	eval {
-	    $dbh->do("UPDATE $table SET val = ? WHERE var = ?", undef,
-		     Storable::nfreeze($prefs), ($attr->{'tvar'} || 'prefs'));
-	};
-	if ($@) {
-	    $dbh->do("CREATE TABLE $table ("
-		     . " var VARCHAR(32) NOT NULL,"
-		     . " val BLOB NOT NULL)");
-	    $dbh->do("INSERT INTO $table VALUES (?, ?)", undef,
-		     ($attr->{'tvar'} || 'prefs'), Storable::nfreeze($prefs));
-	}
-    } else {
-	# Read Prefs
-	my $ref;
-	eval {
-	    my $sth = $dbh->prepare("SELECT val FROM prefs WHERE var = ?");
-	    $sth->execute($attr->{'tvar'} || 'prefs');
-	    $ref = $sth->fetchrow_arrayref();
-	};
-	$prefs = $ref ? Storable::thaw($ref->[0]) : {};
+	$self->_ep_shop_prefs_write($attr);
     }
-    $self->{$attr->{'var'} || 'prefs'} = $prefs;
+
     '';
 }
 

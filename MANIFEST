@@ -1,5 +1,6 @@
 ChangeLog			Version history
 MANIFEST			This file
+MANIFEST.SKIP
 Makefile.PL			Makefile generator
 README				I mean it :-)
 lib/Apache/EP.pm		Modules for mod_perl support
@@ -8,6 +9,7 @@ lib/HTML/EP.pm			Main module
 lib/HTML/EP.pod			Docs
 lib/HTML/EP/Locale.pm		Localization
 lib/HTML/EP/Session.pm		Session management
+lib/HTML/EP/Session/Cookie.pm	Cookie sessions
 lib/HTML/EP/Shop.pm		E-Commerce support
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
@@ -19,6 +21,8 @@ t/vars.t			Variable handling test
 examples/admin/README		User administration (Docs)
 examples/admin/group.ep		User administration (Group management)
 examples/admin/index.ep		User administration (Menu)
+examples/admin/mail2group	User administration (Mail forwarder)
+examples/admin/mail2group.ep	User administration (Mail forwarder admin)
 examples/admin/rmgroup.ep	User administration (Group removal)
 examples/admin/rmuser.ep	User administration (User removal)
 examples/admin/user.ep		User administration (User managament)

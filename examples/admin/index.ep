@@ -43,6 +43,18 @@
     common email address. This is done with the
     <a href="group.ep?language=$_ep_language$">Group administration</a>.
     </ep-language>
+<li><ep-language language="de">
+    Es ist möglich, nicht gelesene Mails nach einem vorgegebenen Zeitraum,
+    z.B. 24 Stunden, an die dem Benutzer zugeordnete Gruppe senden zu
+    lassen. Dies wird <a href="mail2group.ep?language=$_ep_language$">hier</a>
+    eingestellt.
+    </ep-language>
+    <ep-language language="en">
+    It is possible to forward mails to a group associated to the user,
+    if it wasn't read for a given time (for example 24 hours). This
+    system is administrated
+    <a href="mail2group.ep?language=$_ep_language$">here</a>.
+    </ep-language>
 </ul>
 </body>
 </html>

@@ -164,6 +164,9 @@ sub handler ($$) {
 	}
     }
     if (!$self->{_ep_stop}) {
+	foreach my $cookie (values %{$self->{'_ep_cookies'}}) {
+	    $r->header_out('Set-Cookie', $cookie);
+	}
 	$r->send_http_header();
 	$r->print($output);
     }

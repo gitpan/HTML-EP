@@ -474,7 +474,10 @@ choosing the connection. (See the I<ep-database> method above.)
 If you have big result tables, you might prefer DBI's I<fetchrow_arrayref>
 method over creating hash refs, because arrays are created faster than
 hash refs. This is achieved by setting the attribute I<resulttype> to
-B<array>. The default is B<hash>.
+B<array>. The default is B<hash>. Other resulttypes are I<single_hash>
+and I<single_array>: If your query will return at most a single element,
+then the result variable will contain the first row (or an undefined
+value) and not an array.
 
 Sometimes you don't want to retrieve the complete result table. In that
 case you can use the attributes I<startat> and I<limit>. For example,
@@ -483,6 +486,7 @@ would use B<startat=20> and B<limit=20> for rows 20-39.
 
 When using the I<MySQL> engine, the I<startat> and I<limit> attributes
 are directly mapped to MySQL's I<LIMIT> clause.
+
 
 
 =item ep-list
@@ -564,8 +568,36 @@ hash ref as follows:
     };
 
 In general column names beginning with I<address> will be splitted into
-C<prefix_type_suffix>, the type being either 't' for text or 'n' for
-number. The idea is generating SQL queries automatically out of the
+C<prefix_type_suffix>, the type being one of
+
+=over 8
+
+=item t
+
+Text columns (CHAR, VARCHAR, BINARY, or whatever), that will be quoted
+using the $self->{'dbh'}->quote() method.
+
+=item n
+
+Numeric columns (INTEGER, REAL, ...) that will be left untouched
+
+=item dd
+
+=item dm
+
+=item dy
+
+Day, month and year of a date. The combined fields will be quoted as
+'yyyy-mm-dd'.
+
+=item s
+
+Set columns as created using MultiSelect boxes; the selected values
+will be used for creating a comma separated string.
+
+=back
+
+The idea is generating SQL queries automatically out of the
 C<address> variable. This task is supported by the I<sqlquery> attribute:
 
     <ep-database dsn="DBI:mysql:test">

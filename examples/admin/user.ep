@@ -18,7 +18,7 @@
     #     
     my $self = $_;
 
-    $FIRST_UID = 600;
+    my $FIRST_UID = 600;
 
     sub FindUser {
  	my $self = shift; my $user = shift;

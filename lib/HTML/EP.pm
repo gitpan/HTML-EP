@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1113';
+$HTML::EP::VERSION = '0.1116';
 
 
 %HTML::EP::BUILTIN_FORMATS = (
@@ -91,6 +91,7 @@ sub new ($;$) {
     my($proto, $attr) = @_;
     my $self = $attr ? {%$attr} : {};
     $self->{'_ep_stack'} = [];
+    $self->{'_ep_cookies'} ||= {};
     $self->{'_ep_funcs'} ||= { %HTML::EP::BUILTIN_METHODS };
     $self->{'_ep_custom_formats'} ||= { %HTML::EP::BUILTIN_FORMATS };
     $self->{'_ep_output'} = '';
@@ -615,7 +616,7 @@ sub _ep_package ($$;$) {
 	$package =~ s/\:\:/\//g;
 	require $package . ".pm";
     }
-    $self->init();
+    $self->init($attr);
     '';
 }
 end_of__ep_package
@@ -694,7 +695,8 @@ sub _ep_database ($$;$) {
 		      . " pass = %s\n", $dsn, $user, $pass);
     }
     $self->{$dbhvar} = DBI->connect($dsn, $user, $pass,
-				    { 'RaiseError' => 1, 'Warn' => 0 });
+				    { 'RaiseError' => 1, 'Warn' => 0,
+				      'PrintError' => 0 });
     '';
 }
 end_of__ep_database
@@ -705,7 +707,7 @@ sub _ep_query ($$;$) {
     my $self = shift; my $attr = shift;
     my $statement = $attr->{statement};
     my $resultmethod =
-	(defined($attr->{resulttype}) && $attr->{'resulttype'} eq 'array') ?
+	(exists($attr->{resulttype})  &&  $attr->{'resulttype'} =~ /array/) ?
 	    "fetchrow_arrayref" : "fetchrow_hashref";
     if (!defined($statement)) {
 	return undef;
@@ -744,7 +746,12 @@ sub _ep_query ($$;$) {
 	while ($limit--  &&  ($ref = $sth->$resultmethod())) {
 	    push(@$list, (ref($ref) eq 'ARRAY') ? [@$ref] : {%$ref});
 	}
-	$self->{$result} = $list;
+        if (exists($attr->{'resulttype'})  &&
+            $attr->{'resulttype'} =~ /^single_/) {
+            $self->{$result} = $list->[0];
+        } else {
+	    $self->{$result} = $list;
+        }
 	$self->{"${result}_rows"} = scalar(@$list);
 	if ($self->{debug}) {
 	    $self->print("Result: ", scalar(@$list), " rows.\n");
@@ -919,7 +926,8 @@ sub _ep_input ($$;$) {
 					  };
 		    }
 		} else {
-		    $val = $self->{cgi}->param($var);
+		    $val = ($type eq 's') ?
+			join(",", $cgi->param($var)) : $cgi->param($var);
 		    $hash->{$col} = { col => $col,
 				      type => $type,
 				      val => $val
@@ -1041,6 +1049,7 @@ sub _ep_include ($$;$) {
     $parser->{'env'}->{'PATH_TRANSLATED'} = (-f $f) ? $f :
 	($self->{'env'}->{'DOCUMENT_ROOT'} || '') . $f;
     my $output = eval { $parser->Run(); };
+    $self->{'_ep_cookies'} = $parser->{'_ep_cookies'};
     if ($@) {
 	if ($@ =~ /_ep_exit, ignore/) {
 	    $output = $parser->{'_ep_output'};

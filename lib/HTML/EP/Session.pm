@@ -415,6 +415,21 @@ If it doesn't, you need to replace the I<Storable> package with I<FreezeThaw>.
 L<Storable(3)>. L<FreezeThaw(3)>.
 
 
+=head2 The Cookie subclass
+
+This class is using Cookies, as introduced by Netscape 2. When using
+Cookies for the session, you have to use a slightly different syntax:
+
+  <ep-session class="HTML::EP::Session::DBI" name="sessions"
+              var=session id="$@cgi->id$" expires="+1h"
+              domain="www.company.com" path="/">
+
+The attribute I<name> is the cookie's name. (Cookies are name/value
+pairs.) The optional attributes I<expires>, I<domain> and I<path>
+are referring to the respective attributes of CG::Cookie->new().
+L<CGI::Cookie(3)>.
+
+
 =head1 AUTHOR AND COPYRIGHT
 
 This module is
@@ -437,6 +452,6 @@ specified in the Perl README file.
 =head1 SEE ALSO
 
 L<HTML::EP(3)>, L<Apache::Session(3)>, L<DBI(3)>, L<Storable(3)>,
-L<FreezeThaw(3)>
+L<FreezeThaw(3)>, L<CGI::Cookie(3)>
 
 =cut

@@ -9,7 +9,7 @@ if (!eval { require DBD::CSV; require DBI; require Storable; require MD5 }) {
     print "1..0\n";
     exit 0;
 }
-print "1..44\n";
+print "1..49\n";
 
 my $numTests = 0;
 sub Test($;@) {
@@ -198,6 +198,22 @@ Test2($parser->Run($input), "\n" x 5, "Deleting id\n");
 Test($sth->execute($id));
 Test(!$sth->fetchrow_arrayref());
 
+
+$ENV{'SCRIPT_NAME'} = '/cgi-bin/ep.cgi';
+$parser = HTML::EP->new();
+$input = q{
+<ep-package name="HTML::EP::Session">
+<ep-session id="session" class="HTML::EP::Session::Cookie">
+};
+Test2($parser->Run($input), qq{\n\n\n}, "Creating a cookie session\n");
+my $cookie = $parser->{'_ep_cookies'}->{'session'};
+Test($cookie);
+Test($cookie->name eq 'session');
+Test($cookie->value);
+Test($cookie->expires);
+
+
+exit 0;
 
 END { if (-f 'sessions') { unlink 'sessions' }}
 

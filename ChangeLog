@@ -1,6 +1,26 @@
+1998-11-04  Jochen Wiedmann  <joe@ispsoft.de> (0.1116)
+
+	* lib/HTML/EP.pm (_ep_input): Added type 's' (Set).
+	* lib/HTML/EP.pm (_ep_query): Added resulttype single_array
+	  and single_hash.
+
+1998-11-03  Jochen Wiedmann  <joe@ispsoft.de> (0.1115)
+
+	* lib/HTML/EP.pm (_ep_package): Changed $self->init() to
+	  $self->init($attr).
+
+1998-10-27  Jochen Wiedmann  <joe@ispsoft.de> (0.1114)
+
+	* Added HTML::EP::Session::Cookie and $self->{'_ep_cookies'}.
+	* ep.cgi.PL: Fixed 'debughosts' handling to use $ENV{REMOTE_ADDR}
+	  and not $ENV{REMOTE_HOST}.
+	* ep.cgi.PL: Error messages have been reported incorrect when
+	  setting errhandler.
+	* examples/admin: Added mail2group.ep and mail2group.
+
 1998-10-19  Jochen Wiedmann  <joe@ispsoft.de> (0.1113)
 
-	* HTML::EP::Shop and examples/shop (To be finished).
+	* Added HTML::EP::Shop and examples/shop (To be finished).
 
 1998-10-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1112)
 
