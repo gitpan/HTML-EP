@@ -3,13 +3,23 @@
 #   HTML::EP	- A Perl based HTML extension.
 #
 #
-#   Copyright (C) 1998    Jochen Wiedmann
-#                         Am Eisteich 9
-#                         72555 Metzingen
-#                         Germany
+#   Copyright (C) 1998              Jochen Wiedmann
+#                                   Am Eisteich 9
+#                                   72555 Metzingen
+#                                   Germany
 #
-#                         Phone: +49 7123 14887
-#                         Email: joe@ispsoft.de
+#                                   Email: joe@ispsoft.de
+#
+#
+#   Portions Copyright (C) 1999	    OnTV Pittsburgh, L.P.
+#			  	    123 University St.
+#			  	    Pittsburgh, PA 15213
+#			  	    USA
+#
+#			  	    Phone: 1 412 681 5230
+#			  	    Developer: Jason McMullan <jmcc@ontv.com>
+#			            Developer: Erin Glendenning <erg@ontv.com>
+#
 #
 #   All rights reserved.
 #
@@ -19,55 +29,213 @@
 #
 ############################################################################
 
-require 5.004;
+require 5.005;
 use strict;
 
-require URI::Escape;
-require HTML::Entities;
-require CGI;
-require Symbol;
-require HTML::EP::Config;
+use HTML::Entities ();
+use CGI ();
+use Symbol ();
+use HTML::EP::Config ();
+use HTML::EP::Parser ();
 
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1135';
+$HTML::EP::VERSION = '0.20_00';
 
 
-%HTML::EP::BUILTIN_METHODS = (
-    'ep-comment' =>    { method => '_ep_comment',
-			 default => 'comment',
-		         always => 1 },
-    'ep-else' =>       { method => '_ep_elseif',
-			 default => 'result',
-			 condition => 0,
-		         always => 1,
-			 tag => 'ep-else' },
-    'ep-elseif' =>     { method => '_ep_elseif',
-			 default => 'result',
-			 condition => 1,
-		         always => 1,
-		         tag => 'ep-elseif' },
-    'ep-if' =>         { method => '_ep_if',
-			 default => 'result',
-		         always => 1
-		       },
-);
+sub new {
+    my $proto = shift;
+    my $self = (@_ == 1) ? {%{shift()}} : { @_ };
+    $self->{'_ep_output'} = '';
+    $self->{'_ep_output_stack'} = [];
+    $self->{'_ep_config'} ||= $HTML::EP::Config::CONFIGURATION;
+    $self->{'debug'} ||= 0;
+    $self->{'cgi'} ||= (CGI->new() || die "Failed to create CGI object: $!");
+    bless($self, (ref($proto) || $proto));
+}
+
+sub Run {
+    my($self, $template) = @_;
+    my $parser = HTML::EP::Parser->new();
+    my $r = $self->{'_ep_r'};
+    $self->{'env'} ||=  $r ?
+	{ $r->cgi_env(), 'PATH_INFO' => $r->uri() } : \%ENV;
+    if ($template) {
+	$parser->parse($template);
+    } else {
+	my $file = $self->{'env'}->{'PATH_TRANSLATED'}
+	    || die "Missing server environment (PATH_TRANSLATED variable)";
+	my $fh = Symbol::gensym();
+	open($fh, "<$file") || die "Failed to open $file: $!";
+	$parser->parse_file($fh);
+    }
+    $parser->eof();
+    my $tokens = HTML::EP::Tokens->new('tokens' => $parser->{'_ep_tokens'});
+    $self->{'_ep_output'} = $self->ParseVars($self->TokenMarch($tokens));
+}
+
+
+sub CgiRun {
+    my($self, $path, $r) = @_;
+    my $cgi = $self->{'cgi'};
+    my $ok_templates = $self->{'_ep_config'}->{'ok_templates'};
+    local $| = 1;
+    my $output = eval {
+	die "Access to $path forbidden; check ok_templates in ",
+	    $INC{'HTML/EP/Config.pm'}
+		if $ok_templates && $path !~ /$ok_templates/;
+	$self->_ep_debug({}) if $cgi->param('debug');
+	$self->Run();
+    };
+
+    if ($@) {
+	if ($@ =~ /_ep_exit, ignore/) {
+	    $output .= $self->ParseVars($self->{'_ep_output'});
+	} else {
+            my $errmsg;
+            my $errstr = $@;
+            my $errfile = $self->{_ep_err_type} ?
+                $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
+            if ($errfile) {
+                if ($errfile =~ /^\//) {
+                    my $derrfile = $r ?
+                        $r->cgi_var('DOCUMENT_ROOT') : $ENV{'DOCUMENT_ROOT'}
+                            . $errfile;
+                    if ($self->{'debug'}) {
+                        $self->print("Error type = " . $self->{_ep_err_type} .
+                                     ", error file = $errfile" .
+                                     ", derror file = $derrfile\n");
+                    }
+                    if (-f $derrfile) { $errfile = $derrfile }
+                }
+		my $fh = Symbol::gensym();
+		if (open($fh, "<$errfile")) {
+		    local $/ = undef;
+		    $errmsg = <$fh>;
+		    close($fh);
+		}
+	    }
+            if (!$errmsg) {
+                $errmsg = $self->{_ep_err_type} ?
+                    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
+            }
+            return $self->SimpleError($errmsg, $errstr);
+	}
+    }
+
+    if (!$self->{_ep_stop}) {
+	$self->print($cgi->header($self->SetCookies(),
+				  %{$self->{'_ep_headers'}}), $output);
+    }
+}
+
+sub FindEndTag {
+    my($self, $tokens, $tag) = @_;
+    my $level = 0;
+    while (defined(my $token = $tokens->Token())) {
+	if ($token->{'type'} eq 'S') {
+	    ++$level if $token->{'tag'} eq $tag;
+	} elsif ($token->{'type'} eq 'E') {
+	    if ($token->{'tag'} eq $tag) {
+		return $tokens->First() unless $level--;
+	    }
+	}
+    }
+    die "$tag without /$tag";
+}
+
+sub AttrVal {
+    my($self, $val, $tokens, $token) = @_;
+    return $val if defined($val);
+    my $first = $tokens->First();
+    my $last = $self->FindEndTag($tokens,
+				 ref($token) ? $token->{'tag'} : $token);
+    $self->TokenMarch($tokens->Clone($first, $last-1));
+}
+
+sub ParseAttr {
+    my $self = shift; my $attr = shift;
+    my $parsed_attr = {};
+    while (my($var, $val) = each %$attr) {
+	if ($val =~ /\$\_\W/) {
+	    $_ = $self;
+	    $parsed_attr->{$var} = eval $val;
+	    die $@ if $@;
+	} elsif ($val =~ /\$/) {
+	    $parsed_attr->{$var} = $self->ParseVars($val);
+	} else {
+	    $parsed_attr->{$var} = $val;
+	}
+    }
+    $parsed_attr;
+}
+
+sub RepeatedTokenMarch {
+    my $self = shift; my $tokens = shift;
+    my $first = $tokens->First();
+    my $last = $tokens->Last();
+    my $res = $self->TokenMarch($tokens);
+    $tokens->First($first);
+    $tokens->Last($last);
+    $res;
+}
+sub TokenMarch {
+    my($self, $tokens) = @_;
+    my $debug = $self->{'debug'};
+
+    push(@{$self->{'_ep_output_stack'}}, $self->{'_ep_output'});
+    $self->{'_ep_output'} = '';
+    $self->print("TokenMarch: From ", $tokens->First(), " to ",
+		 $tokens->Last(), ".\n") if $debug >= 2;
+    while (defined(my $token = $tokens->Token())) {
+	my $type = $token->{'type'};
+	my $res;
+	if ($type eq 'T') {
+	    $res = $token->{'text'};
+	} elsif ($token->{'type'} eq 'S') {
+	    my $method = "_$token->{'tag'}";
+	    my $attr = $token->{'attr'};
+	    $method =~ s/\-/_/g;
+	    $res = $self->$method($self->ParseAttr($attr), $tokens, $token);
+	    if (!defined($res)) {
+		# Upwards compatibility: If the method returned undef, then
+		# it is a multiline tag in the sense of EP1. We've got to
+		# collect all lines until a matching /$tag and evaluate it.
+		my $def = delete $tokens->{'default'};
+		my $first = $tokens->First();
+		my $last = $self->FindEndTag($tokens, $token->{'tag'});
+		my $t = $tokens->Clone($first, $last-1);
+		$attr->{$def} = $self->TokenMarch($t);
+		$res = $self->$method($attr, $tokens);
+	    }
+	} elsif ($token->{'type'} eq 'I') {
+	    $res = $self->RepeatedTokenMarch($token->{'tokens'});
+	} elsif ($token->{'type'} eq 'E') {
+	    die "Unexpected end tag: /$token->{'tag'} without $token->{'tag'}";
+	} else {
+	    die "Unknown token type $self->{'type'}";
+	}
+	$self->{'_ep_output'} .= $res;
+    }
+    my $result = $self->{'_ep_output'};
+    $self->print("TokenMarch: Returning $result.\n") if $debug >= 2;
+    $self->{'_ep_output'} = pop(@{$self->{'_ep_output_stack'}});
+    $result;
+}
+
+
 
 
 sub WarnHandler {
     my $msg = shift;
-    if (!defined($^S)) {
-	die $msg;
-    }
+    die $msg unless defined($^S);
     print STDERR $msg;
-    if ($msg !~ /\n$/) {
-	print STDERR "\n";
-    }
+    print STDERR "\n" unless $msg =~ /\n$/;
 }
 
 
-sub SimpleError ($$$;$) {
+sub SimpleError {
     my($self, $template, $errmsg, $admin) = @_;
     my $r;
     $r = $self->{'_ep_r'} if $self && ref($self);
@@ -91,7 +259,7 @@ $errmsg$.
 END_OF_HTML
     }
 
-    $template =~ s/\$(\w+)\$/$vars->{$1}/eg;
+    $template =~ s/\$(\w+)\$/$vars->{$1}/g;
     if ($r) {
         $r->print($self->{'cgi'}->header('-type' => 'text/html'), $template);
     } else {
@@ -100,58 +268,25 @@ END_OF_HTML
     }
 }
 
-
-sub new ($;$) {
-    my($proto, $attr) = @_;
-    my $self = $attr ? {%$attr} : {};
-    $self->{'_ep_stack'} = [];
-    $self->{'_ep_headers'} ||= {};
-    $self->{'_ep_cookies'} ||= {};
-    $self->{'_ep_funcs'} ||= { %HTML::EP::BUILTIN_METHODS };
-    $self->{'_ep_custom_formats'} ||= { };
-    $self->{'_ep_output'} = '';
-    $self->{'_ep_state'} = 1;
-    $self->{'_ep_buf'} = '';
-    $self->{'_ep_strict_comment'} = 0;
-    $self->{'_ep_config'} = $HTML::EP::Config::CONFIGURATION;
-
-    if (!($self->{'cgi'} ||= CGI->new())) {
-	die "Cannot create CGI object: $!";
-    }
-    bless($self, (ref($proto) || $proto));
-    $self;
-}
-
-sub DESTROY {
-    my $self = shift;
-    my $dbh = $self->{'dbh'};
-    undef %$self; # Force calling destructors, except for dbh
-                  # dbh destructor is called later
-}
-
 sub print ($;@) {
     my $self = shift;
-    if ($self->{_ep_r}) {
-	$self->{_ep_r}->print(@_);
-    } else {
-	print @_;
-    }
+    $self->{_ep_r} ? $self->{_ep_r}->print(@_) : print @_;
 }
-sub printf($$;@) {
+
+sub printf {
     my($self, $format, @args) = @_;
     $self->print(sprintf($format, @args));
 }
 
-sub ParseVar ($$$$) {
+sub ParseVar {
     my($self, $type, $var, $subvar) = @_;
-    my$result;
     my $func;
 
     if ($type  &&  $type eq '&') {
 	# Custom format
-	$func = $self->{'_ep_custom_formats'}->{$var}
-	    || "_format_$var";
-
+	$func = exists($self->{'_ep_custom_formats'}->{$var}) ?
+	    $self->{'_ep_custom_formats'}->{$var} : "_format_$var";
+	
 	# First part of subvar becomes var
 	if ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
 	    $var = $1;
@@ -163,7 +298,7 @@ sub ParseVar ($$$$) {
 
     if ($var eq 'cgi') {
 	$subvar =~ s/\-\>//;
-	$var = $self->{cgi}->param($subvar);
+	$var = $self->{'cgi'}->param($subvar);
     } else {
 	$var = $self->{$var};
 	while ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
@@ -180,17 +315,17 @@ sub ParseVar ($$$$) {
 	    }
 	}
     }
-    if (!defined($var)) { $var = ''; }
+    $var = '' unless defined($var);
 
     if (!$type  ||  $type eq '%') {
 	$var =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
     } elsif ($type eq '#') {
-	$var = URI::Escape::uri_escape($var, '\W');
+	$var = CGI->escape($var);
     } elsif ($type eq '~') {
-	if (!$self->{dbh}) { die "Not connected"; }
-	$var = $self->{dbh}->quote($var);
+	my $dbh = $self->{'dbh'} || die "Not connected";
+	$var = $dbh->quote($var);
     } elsif ($func) {
-	$var = ref($func) ? &$func($self, $var) : $self->$func($var);
+	$var = $self->$func($var);
     }
 
     $var;
@@ -198,338 +333,31 @@ sub ParseVar ($$$$) {
 
 sub ParseVars ($$) {
     my($self, $str) = @_;
-    $str =~ s{\$([\&\@\#\~\%]?)(\w+)((\-\>\w+)*)\$}
-             {$self->ParseVar($1, $2, $3)}eg;
+    $str =~ s/\$([\&\@\#\~\%]?)(\w+)((\-\>\w+)*)\$/$self->ParseVar($1,$2,$3)/eg;
     $str;
 }
 
-sub parse
-{
+
+
+# For debugging
+sub Dump {
     my $self = shift;
-    my $buf = \ $self->{'_ep_buf'};
-    unless (defined $_[0]) {
-	# signals EOF (assume rest is plain text)
-	$self->text($$buf) if length $$buf;
-	$$buf = '';
-	return $self;
-    }
-    $$buf .= $_[0];
-    my $netscape_comment = !$self->{'_ep_strict_comment'};
-
-    # Parse html text in $$buf.  The strategy is to remove complete
-    # tokens from the beginning of $$buf until we can't deside whether
-    # it is a token or not, or the $$buf is empty.
-
-  TOKEN:
-    while (1) {
-
-	# First we try to pull off any plain text (anything before a "<" char)
-	if ($$buf =~ s|^([^<]+)||) {
-	    if (length $$buf) {
-		$self->text($1);
-	    } else {
-		my $text = $1;
-		# At the end of the buffer, we should not parse white space
-		# but leave it for parsing on the next round.
-		if ($text =~ s|(\s+)$||) {
-		    $$buf = $1;
-                # Same treatment for chopped up entites and words.
-		# We must wait until we have it all.
-		} elsif ($text =~ s|(\S+)$||) {
-		    $$buf = $1;
-		};
-		$self->text($text) if length $text;
-		last TOKEN;
-	    }
-
-	# Netscapes buggy comments are easy to handle
-	} elsif ($netscape_comment && $$buf =~ m|^<!--|) {
-	    if ($$buf =~ s|^<!--(.*?)-->||s) {
-		$self->comment($1);
-	    } else {
-		last TOKEN;  # must wait until we see the end of it
-	    }
-
-	# Then, markup declarations (usually either <!DOCTYPE...> or a comment)
-	} elsif ($$buf =~ s|^(<!)||) {
-	    my $eaten = $1;
-	    my $text = '';
-	    my @com = ();  # keeps comments until we have seen the end
-	    # Eat text and beginning of comment
-	    while ($$buf =~ s|^(([^>]*?)--)||) {
-		$eaten .= $1;
-		$text .= $2;
-		# Look for end of comment
-		if ($$buf =~ s|^((.*?)--)||s) {
-		    $eaten .= $1;
-		    push(@com, $2);
-		} else {
-		    # Need more data to get all comment text.
-		    $$buf = $eaten . $$buf;
-		    last TOKEN;
-		}
-	    }
-	    # Can we finish the tag
-	    if ($$buf =~ s|^([^>]*)>||) {
-		$text .= $1;
-		$self->declaration($text) if $text =~ /\S/;
-		# then tell about all the comments we found
-		for (@com) { $self->comment($_); }
-	    } else {
-		$$buf = $eaten . $$buf;  # must start with it all next time
-		last TOKEN;
-	    }
-
-        # Should we look for 'processing instructions' <? ...> ??
-	#} elsif ($$buf =~ s|<\?||) {
-	    # ...
-
-	# Then, look for a end tag
-	} elsif ($$buf =~ s|^</||) {
-	    # end tag
-	    if ($$buf =~ s|^([a-zA-Z][a-zA-Z0-9\.\-]*)(\s*>)||) {
-		my $tag = lc $1;
-		my $text = "</$1$2";
-		if ($tag =~ /^ep\-/) {
-		    $self->end($tag, $text);
-		} else {
-		    $self->text($text);
-		}
-	    } elsif ($$buf =~ m|^[a-zA-Z]*[a-zA-Z0-9\.\-]*\s*$|) {
-		$$buf = "</" . $$buf;  # need more data to be sure
-		last TOKEN;
-	    } else {
-		# it is plain text after all
-		$self->text("</");
-	    }
-
-	} elsif ($$buf =~ s|^<||) {
-	    # start tag
-	    my $eaten = '<';
-
-	    # This first thing we must find is a tag name.  RFC1866 says:
-	    #   A name consists of a letter followed by letters,
-	    #   digits, periods, or hyphens. The length of a name is
-	    #   limited to 72 characters by the `NAMELEN' parameter in
-	    #   the SGML declaration for HTML, 9.5, "SGML Declaration
-	    #   for HTML".  In a start-tag, the element name must
-	    #   immediately follow the tag open delimiter `<'.
-	    if ($$buf =~ s|^(([a-zA-Z][a-zA-Z0-9\.\-]*)\s*)||) {
-		$eaten .= $1;
-		my $tag = (lc $2);
-		my %attr;
-		my @attrseq;
-
-		if ($tag !~ /^ep\-/) {
-		    $tag = undef;
-		}
-
-		# Then we would like to find some attributes
-                #
-                # Arrgh!! Since stupid Netscape violates RCF1866 by
-                # using "_" in attribute names (like "ADD_DATE") of
-                # their bookmarks.html, we allow this too.
-		while ($$buf =~ s|^(([a-zA-Z][a-zA-Z0-9\.\-_]*)\s*)||) {
-		    $eaten .= $1;
-		    my $attr = lc $2;
-		    my $val;
-		    # The attribute might take an optional value (first we
-		    # check for an unquoted value)
-		    if ($$buf =~ s|(^=\s*([^\"\'>\s][^>\s]*)\s*)||) {
-			$eaten .= $1;
-			if (defined($tag)) {
-			    $val = $2;
-			    HTML::Entities::decode_entities($val);
-			}
-		    # or quoted by " or '
-		    } elsif ($$buf =~ s|(^=\s*([\"\'])(.*?)\2\s*)||s) {
-			$eaten .= $1;
-			if (defined($tag)) {
-			    $val = $3;
-			    HTML::Entities::decode_entities($val);
-			}
-                    # truncated just after the '=' or inside the attribute
-		    } elsif ($$buf =~ m|^(=\s*)$| or
-			     $$buf =~ m|^(=\s*[\"\'].*)|s) {
-			$$buf = "$eaten$1";
-			last TOKEN;
-		    } else {
-			# assume attribute with implicit value
-			$val = $attr;
-		    }
-		    if (defined($tag)) {
-			$attr{$attr} = $val;
-			push(@attrseq, $attr);
-		    }
-		}
-
-		# At the end there should be a closing ">"
-		if ($$buf =~ s|^>||) {
-		    if (defined($tag)) {
-			$self->start($tag, \%attr, \@attrseq, "$eaten>");
-		    } else {
-			$self->text("$eaten>");
-		    }
-		} elsif (length $$buf) {
-		    # Not a conforming start tag, regard it as normal text
-		    $self->text($eaten);
-		} else {
-		    $$buf = $eaten;  # need more data to know
-		    last TOKEN;
-		}
-
-	    } elsif (length $$buf) {
-		$self->text($eaten);
-	    } else {
-		$$buf = $eaten . $$buf;  # need more data to parse
-		last TOKEN;
-	    }
-
-	} else {
-	    #die if length($$buf);  # This should never happen
-	    last TOKEN; 	    # The buffer should be empty now
-	}
-    }
-
-    $self;
-}
-
-
-sub eof
-{
-    shift->parse(undef);
-}
-
-
-sub parse_file
-{
-    my($self, $file) = @_;
-    no strict 'refs';  # so that a symbol ref as $file works
-    local(*F);
-    unless (ref($file) || $file =~ /^\*[\w:]+$/) {
-	# Assume $file is a filename
-	open(F, $file) || die "Can't open $file: $!";
-	$file = \*F;
-    }
-    my $chunk = '';
-    while(read($file, $chunk, 512)) {
-	$self->parse($chunk);
-    }
-    close($file);
-    $self->eof;
-}
-
-
-sub Run ($;$) {
-    my($self, $template) = @_;
-    if ($template) {
-	$self->parse($template);
-	$self->eof();
-    } else {
-	if (!exists($self->{'env'})) {
-	    if (my $r = $self->{'_ep_r'}) {
-		$self->{'env'} = { $r->cgi_env(),
-				   'PATH_INFO' => $r->uri() };
-	    } else {
-		$self->{'env'} = \%ENV;
-	    }
-	}
-	my $file = $self->{env}->{PATH_TRANSLATED};
-	if (!defined($file)) {
-	    die "Missing server environment. (No PATH_TRANSLATED variable)";
-	}
-	my $fh = Symbol::gensym();
-	if (!open($fh, "<$file")) {
-	    die "Cannot open $file: $!";
-	}
-	$self->parse_file($fh);
-	$self->eof();
-    }
-    $self->ParseVars($self->{_ep_output});
-}
-
-sub CgiRun ($$;$) {
-    my $self = shift;  my $path = shift;  my $r = shift;
-    my $cgi = $self->{'cgi'};
-    my $ok_templates = $HTML::EP::Config::CONFIGURATION->{'ok_templates'};
-    my $output = eval {
-        if ($ok_templates  &&  $path !~ /$ok_templates/) {
-	    die "Access to $path forbidden by ok_templates";
-	}
-	$self->_ep_debug({}) if $cgi->param('debug');
-	$self->Run();
-    };
-
-    if ($@) {
-        if ($@ =~ /_ep_exit, ignore/) {
-	    $output = $self->ParseVars($self->{'_ep_output'});
-	} else {
-	    my $errmsg;
-	    my $errstr = $@;
-	    my $errfile = $self->{_ep_err_type} ?
-	        $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
-	    if ($errfile) {
-		if ($errfile =~ /^\//) {
-		    my $derrfile = $r ?
-			$r->cgi_var('DOCUMENT_ROOT') : $ENV{'DOCUMENT_ROOT'}
-			    . $errfile;
-		    if ($self->{'debug'}) {
-			$self->print("Error type = " . $self->{_ep_err_type} .
-				     ", error file = $errfile" .
-				     ", derror file = $derrfile\n");
-		    }
-		    if (-f $derrfile) { $errfile = $derrfile }
-		}
-		eval {
-		    require Symbol;
-		    my $fh = Symbol::gensym();
-		    if (open($fh, "<$errfile")) {
-		        local($/) = undef;
-			$errmsg = <$fh>;
-			close($fh);
-		    }
-		};
-	    }
-	    if (!$errmsg) {
-	        $errmsg = $self->{_ep_err_type} ?
-		    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
-	    }
-	    return $self->SimpleError($errmsg, $errstr);
-	}
-    }
-
-    if (!$self->{_ep_stop}) {
-	$self->print($cgi->header($self->SetCookies(),
-				  %{$self->{'_ep_headers'}}), $output);
-    }
+    require Data::Dumper;
+    Data::Dumper->new([@_])->Indent(1)->Terse(1)->Dump();
 }
 
 sub SetCookies {
     my $self = shift;
     my @cookies = values %{$self->{'_ep_cookies'}};
     return () unless @cookies;
-    if ($self->{'debug'}) {
-	require Data::Dumper;
-	print("Setting cookies:\n", Data::Dumper::Dumper(\@cookies),
-	      "\n");
-    }
+    print "Setting cookies:\n", $self->Dump(\@cookies), "\n"
+	if $self->{'debug'};
     ('-cookie' => \@cookies);
 }
 
-sub text ($$) {
-    my($self, $text) = @_;
-    $self->{_ep_output} .= $text if defined $text;
-}
-sub comment ($$) {
-    my($self, $msg) = @_;
-    $self->{_ep_output} .= "<!--${msg}-->";
-}
-sub declaration ($$) {
-    my($self, $decl) = @_;
-    $self->{_ep_output} .= "<!${decl}>";
-}
 
-sub _ep_if_eval {
+
+sub EvalIf {
     my($self, $tag, $attr) = @_;
     my $debug = $self->{'debug'};
     if (exists($attr->{'eval'})) {
@@ -560,165 +388,27 @@ sub _ep_if_eval {
     return $1 ne $3;
 }
 
-sub start ($$$$$) {
-    my($self, $tag, $attr, $attrseq, $text) = @_;
-    if ($tag =~ /^ep\-/) {
-	my $func = $self->{_ep_funcs}->{$tag};
-	if (!$func) {
-	    my $method = $tag;
-	    $method =~ s/\-/_/g;
-	    $func = $self->{_ep_funcs}->{$tag} = { 'method' => "_$method" };
-	}
-	if (!$self->{_ep_state}  &&  !$func->{always}) {
-	    return;
-	}
 
-	my($var, $val);
-	while (($var, $val) = each %$attr) {
-	    if ($val =~ /\$\_\W/) {
-		$_ = $self;
-		$attr->{$var} = eval $val;
-		if ($@) { die $@ };
-	    } elsif ($val =~ /\$/) {
-		$attr->{$var} = $self->ParseVars($val);
-	    }
-	}
-
-	my $method = $func->{method};
-	my $state = $self->{_ep_state};
-	my $current;
-	if ($tag eq 'ep-if') {
-	    undef $text;
-	    $current = $self->{_ep_state} =
-		($state  and  $self->_ep_if_eval($tag, $attr));
-	} else {
-	    $text = $self->$method($attr, $func);
-	}
-	if (!defined($text)) {
-	    # Multiline mode
-	    my $pop = { attr => $attr,
-			tag => $tag,
-			output => $self->{_ep_output},
-			current => ($current ? 1 : 0),
-			result => undef,
-			state => $state
-		      };
-	    push(@{$self->{_ep_stack}}, $pop);
-	    $self->{_ep_output} = '';
-	    return;
-	}
-    }
-    $self->{_ep_output} .= $text;
-}
-
-sub end ($$$) {
-    my($self, $tag, $text) = @_;
-    if ($tag =~ /^ep\-/) {
-	my $func = $self->{_ep_funcs}->{$tag};
-	if (!$func) {
-	    die "No such function: $tag";
-	}
-	if (!$self->{_ep_state}  &&  !$func->{always}) {
-	    return;
-	}
-	my $pop;
-	if (!($pop = pop(@{$self->{_ep_stack}}))  ||  $pop->{tag} ne $tag) {
-	    die "/$tag without $tag";
-	}
-
-	if ($tag eq 'ep-if') {
-	    if ($pop->{current}) {
-		$text = $self->{_ep_output};
-	    } elsif (!defined($text = $pop->{result})) {
-		$text = '';
-	    }
-	    $self->{_ep_output} = $pop->{output};
-	} else {
-	    my $method = $func->{method};
-	    my $attr = $pop->{attr};
-	    $attr->{$func->{default}} = $self->{_ep_output};
-	    $self->{_ep_output} = $pop->{output};
-	    $text = $self->$method($attr, $func);
-	}
-	$self->{_ep_output} .= $text;
-	$self->{_ep_state} = $pop->{state};
-    } elsif ($self->{_ep_state}) {
-	$self->{_ep_output} .= $text;
-    }
-}
 
 sub init { 1 }
 
 sub Stop ($) { my($self) = @_; $self->{_ep_stop} = 1; }
 
 
-use vars qw($AUTOLOAD $AUTOLOADED_ROUTINES %AUTOLOADED_SUBS);
-sub AUTOLOAD {
-    my($class, $func);
-    if ($AUTOLOAD =~ /(.*)\:\:(.*)/) {
-	$class = $1;
-	$func = $2;
-    } else {
-	return undef;
-    }
-    no strict 'refs';
-    my(@isa) = ($class, @{"${class}::ISA"});
-    while ($class = shift @isa) {
-	my $subs = "${class}::AUTOLOADED_SUBS";
-	if (!%$subs) {
-	    my $subs_str = "${class}::AUTOLOADED_ROUTINES";
-	    if ($$subs_str) {
-		%$subs = eval $$subs_str;
-		if ($@) {
-		    die $@;
-		}
-	    }
-	}
-	if (exists($$subs{$func})) {
-	    eval "package $class; " . $$subs{$func};
-	    if ($@) {
-		die $@;
-	    }
-            goto &{"${class}::$func"};
-        }
-    }
-    die "Method $func is not available.";
+sub _ep_comment {
+    my $self = shift; my $attr = shift;
+    $self->AttrVal($attr->{'comment'}, @_);
+    '';
 }
 
 
-############################################################################
-#
-#   Autoloaded functions
-#
-############################################################################
-
-$AUTOLOADED_ROUTINES = <<'END_OF_AUTOLOADED_ROUTINES';
-
-(
-
-_ep_comment => <<'end_of__ep_comment',
-sub _ep_comment ($$;$) {
-    my($self, $attr) = @_;
-    if (!defined($attr->{'comment'})) {
-	$self->{_ep_state} = 0;
-	return undef;
-    }
-    ''
-}
-end_of__ep_comment
-
-
-_ep_package => <<'end_of__ep_package',
-sub _ep_package ($$;$) {
+sub _ep_package {
     my $self = shift; my $attr = shift;
     my $package = $attr->{name};
     if (!exists($attr->{'require'})  ||  $attr->{'require'}) {
-	my @inc = @INC;
-	if ($attr->{'lib'}) {
-	    unshift(@inc, $ENV{'DOCUMENT_ROOT'} . $attr->{'lib'},
-		    $attr->{'lib'});
-	}
-	local @INC = @inc;
+	my @inc = ($ENV{'DOCUMENT_ROOT'} . $attr->{'lib'},
+		   $attr->{'lib'}, @INC) if $attr->{'lib'};
+	local @INC = @inc if @inc;
         my $ppm = $package;
 	$ppm =~ s/\:\:/\//g;
 	require "$ppm.pm";
@@ -731,28 +421,25 @@ sub _ep_package ($$;$) {
     $self->init($attr);
     '';
 }
-end_of__ep_package
 
-_ep_debug => <<'end_of__ep_debug',
 sub _ep_debug {
     my $self = shift;
     my $cgi = $self->{'cgi'};
 
-    my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
+    my $debughosts = $self->{'_ep_config'}->{'debughosts'};
     if ($debughosts) {
 	my $remoteip = '';
 	my $remotehost = '';
-	if (my $r = $self->{'_ep_r'}) {
+	if ($self->{'_ep_r'}  &&  (my $r = $self->{'_ep_r'})) {
 	    $remoteip = ($r->connection()->remote_ip() || '');
 	    $remotehost = ($r->get_remote_host() || '');
 	} else {
 	    $remoteip = ($ENV{'REMOTE_ADDR'} || '');
 	}
-	if (($remoteip and $remoteip !~ /$debughosts/)  and
-	    ($remotehost !~ /$debughosts/)) {
-	    die "Debugging not permitted from $remoteip"
-		. " ($remotehost), debug hosts = $debughosts";
-	}
+	die "Debugging not permitted from $remoteip"
+	    . " ($remotehost), debug hosts = $debughosts"
+		if (($remoteip and $remoteip !~ /$debughosts/)  and
+		    ($remotehost !~ /$debughosts/));
     }
 
     $| = 1;
@@ -762,34 +449,31 @@ sub _ep_debug {
     foreach my $p ($cgi->param()) {
 	$self->print(" $p = ", $cgi->param($p), "\n");
     }
-    $self->{'debug'} = 1;
+    $self->{'debug'} = $cgi->param('debug') || 1;
     '';
 }
-end_of__ep_debug
 
-_ep_perl => <<'end_of__ep_perl',
-sub _ep_perl ($$;$) {
-    my($self, $attr, $func) = @_;
-    my($file, $code);
-    if ($file = $attr->{'src'}) {
+sub GetPerlCode {
+    my $self = shift;  my $attr = shift;
+
+    my $code;
+    if (my $file = $attr->{'src'}) {
 	my $fh = Symbol::gensym();
 	if (! -f $file  &&  -f ($self->{env}->{DOCUMENT_ROOT} . $file)) {
 	    $file = ($self->{env}->{DOCUMENT_ROOT} . $file);
 	}
-	if (!open($fh, "<$file")) {
-	    die "Cannot open $file: $!";
-	}
+	open($fh, "<$file") || die "Cannot open $file: $!";
 	local $/ = undef;
 	$code = <$fh>;
-	if (!defined($fh)  ||  !close($fh)) {
-	    die "Error while reading $file: $!";
-	}
+	die "Error while reading $file: $!" unless defined($fh) and close($fh);
     } else {
-	if (!defined($code = $attr->{'code'})) {
-	    $func->{'default'} ||= 'code';
-	    return undef;
-	}
+	$code = $self->AttrVal($attr->{'code'}, @_);
     }
+    $code;
+}
+
+sub EvalPerlCode {
+    my($self, $attr, $code) = @_;
     my $output;
     if ($attr->{'safe'}) {
 	my $compartment = $self->{_ep_compartment};
@@ -805,30 +489,36 @@ sub _ep_perl ($$;$) {
     } else {
 	$code = "package ".
 	    ($attr->{'package'} || "HTML::EP::main").";".$code;
-	if ($self->{debug}) {
-	    $self->HTML::EP::print("Evaluating script:\n$code\n");
-	}
+	$self->print("Evaluating script:\n$code\n") if $self->{'debug'};
 	local $_ = $self; # The 'local' is required for garbage collection
 	$output = eval $code;
     }
-    if ($@) { die $@ };
-    if ($self->{debug}) {
-	$self->printf("Script returned:\n$output\nEnd of output.\n");
-    }
-    if ($attr->{output}) {
-	my $type = lc $attr->{output};
-	if ($type eq 'html') {
-	    $output =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
-	} elsif ($type eq 'url') {
-	    $output = URI::Escape::uri_escape($output, '\W');
-	}
-    }
+    die $@ if $@;
+    $self->printf("Script returned:\n$output\nEnd of output.\n")
+	if $self->{debug};
     $output;
 }
-end_of__ep_perl
+
+sub EncodeByAttr {
+    my($self, $attr, $str) = @_;
+    if (my $type = $attr->{'output'}) {
+	if ($type eq 'html') {
+	    $str = ~ s/([<&>"\$])/HTML::Entities::char2entity{$1}/g;
+	} elsif ($type eq 'url') {
+	    $str = CGI->escape($str);
+	}
+    }
+    $str;
+}
+
+sub _ep_perl {
+    my $self = shift; my $attr = shift;
+    my $code = $self->GetPerlCode($attr, @_);
+    return undef unless defined $code;
+    $self->EncodeByAttr($attr, $self->EvalPerlCode($attr, $code));
+}
 
 
-_ep_database => <<'end_of__ep_database',
 sub _ep_database ($$;$) {
     my $self = shift; my $attr = shift;
     my $dsn = $attr->{'dsn'} || $self->{env}->{DBI_DSN};
@@ -836,83 +526,87 @@ sub _ep_database ($$;$) {
     my $pass = $attr->{'password'} || $self->{env}->{DBI_PASS};
     my $dbhvar = $attr->{'dbh'} || 'dbh';
     require DBI;
-    if ($self->{debug}) {
-	$self->printf("Connecting to database: dsn = %s, user = %s,"
-		      . " pass = %s\n", $dsn, $user, $pass);
-    }
+    $self->printf("Connecting to database: dsn = %s, user = %s,"
+		  . " pass = %s\n", $dsn, $user, $pass) if $self->{'debug'};
     $self->{$dbhvar} = DBI->connect($dsn, $user, $pass,
 				    { 'RaiseError' => 1, 'Warn' => 0,
 				      'PrintError' => 0 });
     '';
 }
-end_of__ep_database
 
 
-_ep_query => <<'end_of__ep_query',
-sub _ep_query ($$;$) {
-    my($self, $attr, $func) = @_;
-    my $statement = $attr->{statement};
-    my $debug = $self->{'debug'};
-    my $resultmethod =
-	(exists($attr->{resulttype})  &&  $attr->{'resulttype'} =~ /array/) ?
-	    "fetchrow_arrayref" : "fetchrow_hashref";
-    if (!defined($statement)) {
-	$func->{'default'} ||= 'statement';
-	return undef;
+sub SqlSetupStatement {
+    my($self, $attr, $dbh, $statement) = @_;
+
+    my $start_at = $attr->{'startat'} || 0;
+    my $limit = $attr->{'limit'} || -1;
+    if (($start_at  ||  $limit != -1)  &&
+	$dbh->{'ImplementorClass'} eq 'DBD::mysql::db') {
+	$statement .= " LIMIT $start_at, $limit";
+	$start_at = 0;
     }
-    my $dbh = $self->{$attr->{dbh} || 'dbh'};
-    if (!$dbh) { die "Not connected"; }
-    if (my $result = $attr->{result}) {
-	my $start_at = $attr->{'startat'} || 0;
-	my $limit = $attr->{'limit'} || -1;
-        if (($start_at  ||  $limit != -1)  &&
-            $dbh->{'ImplementorClass'} eq 'DBD::mysql::db') {
-            $statement .= " LIMIT $start_at, $limit";
-	    $start_at = 0;
-        }
-        if ($debug) {
-	    $self->print("Executing query, statement = $statement\n");
-	    $self->printf("Result starting at row %s\n",
-		$attr->{'startat'} || 0);
-	    $self->printf("Rows limited to %s\n", $attr->{'limit'});
+    if ($self->{'debug'}) {
+	$self->print("Executing query, statement = $statement\n");
+	$self->printf("Result starting at row %s\n",
+		      $attr->{'startat'} || 0);
+	$self->printf("Rows limited to %s\n", $attr->{'limit'});
+    }
+    my $sth = $dbh->prepare($statement);
+    $sth->execute();
+    ($sth, $start_at, $limit)
+}
+
+sub SqlSetupResult {
+    my($self, $attr, $sth, $start_at, $limit) = @_;
+    my $result = $attr->{'result'};
+    my $list = [];
+    my $ref;
+    while ($limit  &&  $start_at-- > 0) {
+	if (!$sth->fetchrow_arrayref()) {
+	    $limit = 0;
+	    last;
 	}
-	my $sth = $dbh->prepare($statement);
-	$sth->execute();
-	my $list = [];
-	my $ref;
-	while ($limit  &&  $start_at-- > 0) {
-	    if (!$sth->fetchrow_arrayref()) {
-		$limit = 0;
-		last;
-	    }
-	}
-	while ($limit--  &&  ($ref = $sth->$resultmethod())) {
-	    push(@$list, (ref($ref) eq 'ARRAY') ? [@$ref] : {%$ref});
-	}
-        if (exists($attr->{'resulttype'})  &&
-            $attr->{'resulttype'} =~ /^single_/) {
-            $self->{$result} = $list->[0];
-        } else {
-	    $self->{$result} = $list;
-        }
-	$self->{"${result}_rows"} = scalar(@$list);
-	$self->print("Result: ", scalar(@$list), " rows.\n") if $debug;
+    }
+    my $resultmethod =
+	(exists($attr->{'resulttype'})  &&  $attr->{'resulttype'} =~ /array/) ?
+	    "fetchrow_arrayref" : "fetchrow_hashref";
+    while ($limit--  &&  ($ref = $sth->$resultmethod())) {
+	push(@$list, (ref($ref) eq 'ARRAY') ? [@$ref] : {%$ref});
+    }
+    if (exists($attr->{'resulttype'})  &&
+	$attr->{'resulttype'} =~ /^single_/) {
+	$self->{$result} = $list->[0];
     } else {
+	$self->{$result} = $list;
+    }
+    $self->{"$result\_rows"} = scalar(@$list);
+    $self->print("Result: ", scalar(@$list), " rows.\n") if $self->{'debug'};
+}
+
+sub _ep_query {
+    my($self, $attr, $tokens, $token) = @_;
+    my $debug = $self->{'debug'};
+    my $statement;
+    unless (defined($statement = $attr->{'statement'})) {
+	my $last = $self->FindEndTag($tokens, $token);
+	$statement = $self->ParseVars
+	    ($self->TokenMarch($tokens->Clone(undef, $last-1)));
+    }
+    my $dbh = $self->{$attr->{'dbh'} || 'dbh'} || die "Not connected";
+    if (!exists($attr->{'result'})) {
         $self->print("Doing Query: $statement\n") if $debug;
 	$dbh->do($statement);
+	return '';
     }
+
+    $self->SqlSetupResult($attr,
+			  $self->SqlSetupStatement($attr, $dbh, $statement));
     '';
 }
-end_of__ep_query
 
 
-_ep_select => <<'end_of__ep_select',
 sub _ep_select ($$;$) {
-    my($self, $attr, $func) = @_;
-    if (!exists($attr->{'template'})) {
-	$func->{'default'} ||= 'template';
-	return undef;
-    }
+    my $self = shift;  my $attr = shift;
     my @tags;
     while (my($var, $val) = each %$attr) {
 	if ($var !~ /^template|range|format|items?|selected(?:\-text)?$/i){
@@ -922,42 +616,44 @@ sub _ep_select ($$;$) {
     }
 
     $attr->{'format'} = '<SELECT ' . join(" ", @tags) . '>$@output$</SELECT>';
-    $self->_ep_list($attr);
+    $self->_ep_list($attr, @_);
 }
-end_of__ep_select
 
 
-_ep_list => <<'end_of__ep_list',
-sub _ep_list ($$;$) {
-    my($self, $attr, $func) = @_;
+sub _ep_list {
+    my($self, $attr, $tokens, $token) = @_;
     my $debug = $self->{'debug'};
     my $template;
-    if (!defined($template = $attr->{template})) {
-	$func->{'default'} ||= 'template';
-        return undef;
+    if (defined($attr->{'template'})) {
+	my $parser = HTML::EP::Parser->new();
+	$parser->text($attr->{'template'});
+	$template = HTML::EP::Tokens->new('tokens' => $parser->{'_ep_tokens'});
+    } else {
+	my $first = $tokens->First();
+	my $last = $self->FindEndTag($tokens, $token->{'tag'});
+	$template = $tokens->Clone($first, $last-1);
     }
     my $output = '';
     my($list, $range);
     if ($range = $attr->{'range'}) {
-	if ($range =~ /(\d+)\.\.(\d+)/) {
+	if ($range =~ /^(\d+)\.\.(\d+)$/) {
 	    $list = [$1 .. $2];
 	} else {
 	    $list = [split(/,/, $range)];
 	}
     } else {
-	my $items = $attr->{items};
+	my $items = $attr->{'items'};
 	$list = ref($items) ? $items : $self->{$items};
     }
     $self->print("_ep_list: Template = $template, Items = ", @$list, "\n")
 	if $debug;
-    my $l = $attr->{item} or die "Missing item name";
-    my $ref;
+    my $l = $attr->{'item'} or die "Missing item name";
     my $i = 0;
     my $selected = $attr->{'selected'};
     my $isSelected;
-    foreach $ref (@$list) {
+    foreach my $ref (@$list) {
 	$self->{$l} = $ref;
-	$self->{i} = $i++;
+	$self->{'i'} = $i++ unless $l eq 'i';
 	if ($selected) {
 	    if (ref($ref)  eq  'HASH') {
 		$isSelected = $ref->{'val'} eq $selected;
@@ -969,7 +665,7 @@ sub _ep_list ($$;$) {
 	    $self->{'selected'} = $isSelected ?
 		($attr->{'selected-text'} || 'SELECTED') : '';
 	}
-	$output .= $self->ParseVars($template);
+	$output .= $self->ParseVars($self->RepeatedTokenMarch($template));
     }
     if (my $format = $attr->{'format'}) {
 	$attr->{'output'} = $output;
@@ -979,46 +675,32 @@ sub _ep_list ($$;$) {
 	$output;
     }
 }
-end_of__ep_list
 
 
-_ep_errhandler => <<'end_of__ep_errhandler',
-sub _ep_errhandler ($$;$) {
-    my($self, $attr, $func) = @_;
+sub _ep_errhandler {
+    my $self = shift; my $attr = shift;
     my $type = $attr->{type};
     $type = ($type  &&  (lc $type) eq 'user') ? 'user' : 'system';
     if ($attr->{src}) {
-	$self->{'_ep_err_file_' . $type} = $attr->{src};
+	$self->{"_ep_err_file_$type"} = $attr->{src};
     } else {
-	my $template = $attr->{'template'};
-	if (!defined($template)) {
-	    $func->{'default'} ||= 'template';
-	    return undef;
-	}
-	$self->{'_ep_err_msg_' . $type} = ($attr->{template} || '');
+	my $template = $self->AttrVal($attr->{'template'}, @_);
+	$self->{"_ep_err_msg_$type"} = $template;
     }
     '';
 }
-end_of__ep_errhandler
 
 
-_ep_error => <<'end_of__ep_error',
-sub _ep_error ($$;$) {
-    my($self, $attr, $func) = @_;
-    my $msg = $attr->{'msg'};
-    if (!defined($msg)) {
-	$func->{'default'} ||= 'msg';
-	return undef;
-    }
-    my $type = $attr->{type};
+sub _ep_error {
+    my $self = shift; my $attr = shift;
+    my $msg = $self->AttrVal($attr->{'msg'}, @_);
+    my $type = $attr->{'type'};
     $self->{_ep_err_type} = ($type  &&  (lc $type) eq 'user') ? 1 : 0;
     die $msg;
     '';
 }
-end_of__ep_error
 
 
-_ep_input_sql_query => <<'_end_of__ep_input_sql_query',
 sub _ep_input_sql_query {
     my $self = shift;  my $attr = shift;
     my $dbh = $self->{'dbh'} ||
@@ -1048,27 +730,23 @@ sub _ep_input_sql_query {
     print "_ep_input_sql_query: Setting $dest\->update to $update\n" if $debug;
     '';
 }
-_end_of__ep_input_sql_query
 
-_ep_input => <<'end_of__ep_input',
-sub _ep_input ($$;$) {
+sub _ep_input {
     my($self, $attr) = @_;
-    my $prefix = $attr->{prefix};
+    my $prefix = $attr->{'prefix'};
     my($var, $val);
-    my $cgi = $self->{cgi};
+    my $cgi = $self->{'cgi'};
     my @params = $cgi->param();
     my $i = 0;
     my $list = $attr->{'list'};
     my $dest = $attr->{'dest'};
 
-    if ($list) {
-	$self->{$dest} = [];
-    }
+    $self->{$dest} = [] if $list;
     while(1) {
 	my $p = $prefix;
 	my $hash = {};
 	if ($list) {
-	    $p .= "${i}_";
+	    $p .= "$i\_";
 	}
 	foreach $var (@params) {
 	    if ($var =~ /^\Q$p\E\_?(\w+?)_(.*)$/) {
@@ -1126,61 +804,67 @@ sub _ep_input ($$;$) {
 	}
     }
     if ($self->{'debug'}) {
-	require Data::Dumper;
 	$self->print("_ep_input: Gelesene Daten\n",
-		   Data::Dumper->new([$self->{$dest}])->Indent(1)->Terse(1)->Dump());
+                     $self->Dump($self->{$dest}));
     }
     '';
 }
-end_of__ep_input
 
-
-_ep_elseif => <<'end_of__ep_elseif',
-sub _ep_elseif ($$;$) {
-    my($self, $attr, $func) = @_;
-    my $stack = $self->{_ep_stack};
-    if (!@$stack) {
-	die "$func->{'tag'} without ep-if";
+sub _ep_if {
+    my($self, $attr, $tokens, $token) = @_;
+    my $level = 0;
+    my $tag = $token->{'tag'};
+    my $state = $self->EvalIf($tag, $attr);
+    my $start = $tokens->First() if $state;
+    my $state_done = $state;
+    my $last;
+    while (defined(my $token = $tokens->Token())) {
+	if ($token->{'type'} eq 'S') {
+	    if ($token->{'tag'} eq 'ep-if') {
+		++$level;
+	    } elsif ($token->{'tag'} =~ /^ep-else(?:if)?$/) {
+		next if $level;
+		if ($state) {
+		    $last = $tokens->First()-1;
+		    $state = 0;
+		} elsif (!$state_done) {
+		    if ($state = $token->{'tag'} eq 'ep-else' ||
+			$self->EvalIf
+			    ($tag, $self->ParseAttr($token->{'attr'}))) {
+			$state_done = 1;
+			$start = $tokens->First();
+		    }
+		}
+	    }
+	} elsif ($token->{'type'} eq 'E') {
+	    if ($token->{'tag'} eq 'ep-if') {
+		next if $level--;
+		return '' unless $state_done;
+		$last = $tokens->First()-1 if $state;
+		return $self->TokenMarch($tokens->Clone($start, $last));
+	    }
+	}
     }
-    my $pop = $stack->[$#$stack];
-    if ($pop->{tag} ne 'ep-if') {
-	my $f = $func->{'method'};
-	$f =~ s/^_ep_/ep-/;
-	die "$func->{'tag'} without ep-if, got " . $pop->{tag};
-    }
-    if ($pop->{current}) {
-	$pop->{result} = $self->{_ep_output};
-	$pop->{current} = $self->{_ep_state} = 0;
-    } elsif (!defined($pop->{result})) {
-	$pop->{current} = !$func->{condition} ||
-            ($self->_ep_if_eval('ep-elseif', $attr) ? 1 : 0);
-	$self->{_ep_state} = $pop->{current} && $pop->{state};
-    }
-    $self->{_ep_output} = '';
+    die "ep-if without /ep-if";
 }
-end_of__ep_elseif
+
+sub _ep_elseif { die "ep-elseif without ep-if" }
+sub _ep_else { die "ep-else without ep-if" }
 
 
-_ep_mail => <<'end_of__ep_mail',
-sub _ep_mail ($$;$) {
-    my($self, $attr, $func) = @_;
+sub _ep_mail {
+    my $self = shift; my $attr = shift;
 
-    my $body = delete $attr->{'body'};
     my $host = (delete $attr->{'mailserver'})  ||
 	$self->{'_ep_config'}->{'mailhost'} || '127.0.0.1';
     my @options;
-    if (!defined($body)) {
-	$func->{'default'} = 'body';
-	return undef;
-    }
+    my $body = $self->AttrVal($attr->{'body'}, @_);
     require Mail::Header;
-    my $msg = new Mail::Header;
+    my $msg = Mail::Header->new();
     my($header, $val);
-    foreach $header ('to', 'from', 'subject') {
-	if (!$attr->{$header}) {
-	    die "Missing header attribute: $header";
-	}
-    }
+    my $from = $attr->{'from'} || die "Missing header attribute: from";
+    die "Missing header attribute: to" unless $attr->{'to'};
+    die "Missing header attribute: subject" unless $attr->{'subject'};
     while (($header, $val) = each %$attr) {
 	$msg->add($header, $val);
     }
@@ -1197,88 +881,63 @@ sub _ep_mail ($$;$) {
     my $smtp = Net::SMTP->new($host, 'Debug' => $debug)
         or die "Cannot open SMTP connection to $host: $!";
     my $mail = Mail::Internet->new([$self->ParseVars($body)], Header => $msg);
-    $Mail::Util::mailaddress = $attr->{'from'}; # Ugly hack to prevent
-                                                # DNS lookup for 'mailhost'
-                                                # in Mail::Util::mailaddress().
+    $Mail::Util::mailaddress = $from; # Ugly hack to prevent
+                                      # DNS lookup for 'mailhost'
+                                      # in Mail::Util::mailaddress().
     $mail->smtpsend('Host' => $smtp, @options);
     $smtp->quit();
     '';
 }
-end_of__ep_mail
 
 
-_ep_include => <<'end_of__ep_include',
-sub _ep_include ($$;$) {
-    my $self = shift; my $attr = shift;
-    my $parser = $self->new($self);
+sub _ep_include {
+    my($self, $attr, $tokens, $token) = @_;
+    my $parser = HTML::EP::Parser->new();
     my $f = $attr->{'file'}  ||  die "Missing file name\n";
-    $parser->{'env'}->{'PATH_TRANSLATED'} = (-f $f) ? $f :
-	($self->{'env'}->{'DOCUMENT_ROOT'} || '') . $f;
-    my $output = eval { $parser->Run(); };
-    if ($@) {
-	if ($@ =~ /_ep_exit, ignore/) {
-	    $output = $parser->{'_ep_output'};
-	} else {
-	    my $type = 'system';
-	    if ($self->{'_ep_err_type'} = $parser->{'_ep_err_type'}) {
-		$type = 'user';
-	    }
-	    if (defined(my $file = $parser->{"_ep_err_file_$type"})) {
-		$self->{"_ep_err_file_$type"} = $file;
-	    }
-	    if (defined(my $msg = $parser->{"_ep_err_msg_$type"})) {
-		$self->{"_ep_err_msg_$type"} = $msg;
-	    }
-	    die $@;
-	}
-    }
-    $output;
+    my $df = $self->{'env'}->{'DOCUMENT_ROOT'} . $f;
+    $f = $df if -f $df;
+    my $fh = Symbol::gensym();
+    open($fh, "<$f") || die "Failed to open file $f: $!";
+    $parser->parse_file($fh);
+    $parser->eof();
+    my $new_toks = HTML::EP::Tokens->new('tokens' => $parser->{'_ep_tokens'});
+    $tokens->Replace
+	($tokens->First()-1,
+	 { 'type' => 'I',
+	   'tokens' => $new_toks
+	 }) if $tokens; # Upwards compatibility: Before EP 0.20 users
+                        # didn't pass a tokens argument.
+    $self->RepeatedTokenMarch($new_toks)
 }
-end_of__ep_include
 
 
-_ep_exit => <<'end_of__ep_exit',
-sub _ep_exit ($$;$) {
+sub _ep_exit {
     my $self = shift;
-
-    # At this point we have a problem, if we are inside an <ep-if>,
-    # as _ep_output is currently not valid. Even worse, we might be
-    # inside a nested ep-if ...
-    my $stack = $self->{'_ep_stack'};
-    my $pop;
-    while ($pop = pop(@$stack)) {
-	if ($pop->{'tag'} eq 'ep-if') {
-	    $self->{'_ep_output'} = $pop->{'output'} . $self->{'_ep_output'};
-	}
-    }
-
+    # If we are inside of an ep-if, we need to collect previous output
+    $self->{'_ep_output'} = join('', @{$self->{'_ep_output_stack'}},
+				 $self->{'_ep_output'});
     die "_ep_exit, ignore";
-    '';
 }
-end_of__ep_exit
 
-_ep_redirect => <<'end_of__ep_redirect',
-sub _ep_redirect ($$;$) {
+sub _ep_redirect {
     my $self = shift; my $attr = shift;
     my $to = $attr->{'to'} or die "Missing redirect target";
     $self->print("Redirecting to $to\n") if $self->{'debug'};
-    $self->print($self->{'cgi'}->redirect($to,
+    $self->print($self->{'cgi'}->redirect('-uri' => $to,
+                                          '-type' => 'text/plain',
+					  '-refresh' => "0; URL=$to",
                                           $attr->{'cookies'} ?
                                               $self->SetCookies() : ()));
+    $self->print('<BODY BGCOLOR="#FFFFFF">Click <A HREF="', $to,
+                 '">here</A> to go on</BODY>');
     $self->Stop();
     '';
 }
-end_of__ep_redirect
 
-_ep_set => <<'end_of__ep_set',
-sub _ep_set ($$;$) {
-    my($self, $attr, $func) = @_;
-    if (!exists($attr->{'val'})) {
-	$func->{'default'} ||= 'val';
-	return undef;
-    }
+sub _ep_set {
+    my $self = shift; my $attr = shift;
+    my $val = $self->AttrVal($attr->{'val'}, @_);
     my $var = $attr->{'var'};
-    my $val = $attr->{'val'};
     my $ref = $self;
     while ($var =~ /(.*?)\-\>(.*)/) {
         my $key = $1;
@@ -1297,9 +956,7 @@ sub _ep_set ($$;$) {
     }
     '';
 }
-end_of__ep_set
 
-_format_NBSP => <<'end_of__format_NBSP',
 sub _format_NBSP {
     my $self = shift; my $str = shift;
     if (!defined($str)  ||  $str eq '') {
@@ -1307,10 +964,6 @@ sub _format_NBSP {
     }
     $str;
 }
-end_of__format_NBSP
-
-);
 
 
-END_OF_AUTOLOADED_ROUTINES
-
+1;

@@ -41,56 +41,21 @@ sub prompt {
     ($ans ne '') ? $ans : $def;
 }
 
-my %prereq;
-sub CheckModule ($;$$) {
-    my($module, $version, $package) = @_;
-    $package ||= $module;
-    $prereq{$module} = $version || 0;
-    if ($version) {
-        print "Checking for $package, $version or later ... ";
-        eval "use $module $version";
-        if ($@) {
-            print("\nYou don't have installed the $package package,",
-                  " version $version or later.\n");
-            return 0;
-        }
-    } else {
-        print "Checking for $package ... ";
-        eval "use $module";
-        if ($@) {
-            print("\nYou don't have installed the $package package.\n");
-            return 0;
-        }
-    }
-    print "ok\n";
-    return 1;
-}
-
-my $ok = 1;
-$ok = 0 unless CheckModule("Data::Dumper");
-$ok = 0 unless CheckModule("Storable");
-$ok = 0 unless CheckModule("LWP", undef, "libwww");
-$ok = 0 unless CheckModule("Mail::Internet", 1.32);
-$ok = 0 unless CheckModule("URI::Escape");
-$ok = 0 unless CheckModule("CGI::Cookie");
-
-if (!$ok) {
-    print <<"MESSAGE";
-
-Missing modules are available from any CPAN mirror, for example
-	ftp://ftp.funet.fi/pub/languages/perl/CPAN/modules/by-module
-
-MESSAGE
-}
-
-if (!$ok) {
-    exit 1;
-}
+my %prereq =
+( 'Data::Dumper' => 0,
+  'Storable' => 0,
+  'LWP' => 0,
+  'Mail::Internet' => 1.32,
+  'CGI::Cookie' => 0
+);
 
 
 eval "use HTML::EP ();";
-if (!$@  &&  $HTML::EP::VERSION < 0.1100) {
-    print <<'MSG';
+unless ($@) {
+    my $version = $HTML::EP::VERSION;
+    $version =~ s/_//;
+    if ($version < 0.1100) {
+	print <<'MSG';
 
 You seem to have installed a recent version of HTML::EP. There have been
 important changes in the current version that may break existing code:
@@ -100,6 +65,19 @@ the "epperl-" and "epparse-" markers, the package ought to detect
 automatically that it should parse or evaluate attributes.)
 
 MSG
+    } elsif ($version < 0.2000) {
+	print <<'MSG';
+
+You seem to have installed a recent version of HTML::EP. Version 0.2
+has changed a lot of internals. So far there are no known incompatibilities,
+but if you have existing applications built on top of EP, you should
+either not install this version or carefully check your application.
+If you encounter any problems, let me know:
+
+  Jochen Wiedmann, <joe@ispsoft.de>
+
+MSG
+    }
 }
 
 
@@ -161,7 +139,7 @@ my %opts = (
 
 if ($ExtUtils::MakeMaker::VERSION >= 5.43) {
     $opts{'ABSTRACT'} = 'A system for embedding Perl into HTML';
-    $opts{'AUTHOR'} = 'Jochen Wiedmann (joe@ispsoft.de)';
+    $opts{'AUTHOR'} = 'Jochen Wiedmann <joe@ispsoft.de>';
     $opts{'PREREQ_PM'} = \%prereq;
 }
 

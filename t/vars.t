@@ -92,6 +92,6 @@ Test2($self->ParseVars('$@_ep_language$'),
       "Default language\n");
 Test2($self->ParseVars('$&DM->sum$'), '1 234 567,89 DM',
                        "Custom format: DM\n");
-Test2($self->ParseVars('$#path$'), 'file%3A%2Fmosaic%2F%2E%2E');
+Test2($self->ParseVars('$#path$'), 'file%3A%2Fmosaic%2F..');
 
 

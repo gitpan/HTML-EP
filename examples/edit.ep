@@ -290,8 +290,10 @@
 	    $cgi->param("table", "addresses");
 	}
     }
+    $self->{'errors'} = $errors;
 
-    $self->{'_ep_custom_formats'}->{'NULL'} = sub {
+    package HTML::EP;
+    sub _format_NULL {
 	my $self = shift; my $str = shift;
 	if (!defined($str)) {
 	    $str = $self->{'accept_nulls'} ? "NULL" : "";
@@ -301,7 +303,6 @@
 	$str;
     };
 
-    $self->{'errors'} = $errors;
     '';
 }</ep-perl>
 <HTML><HEAD><TITLE>

@@ -52,9 +52,9 @@ DESCRIPTION
     more. Using them make live a lot easier, but not so much as you like.
     the CGI(3) manpage. the mod_perl(3) manpage.
 
-    On the other hand, there are tools like PHP/FI or WebHTML. Incredibly
-    easy to use, but not as powerfull as Perl. Why not get the best from
-    both worlds? This is what EP wants to give you, similar to ePerl or
+    On the other hand, there are tools like PHP or WebHTML. Incredibly easy
+    to use, but not as powerfull as Perl. Why not get the best from both
+    worlds? This is what EP wants to give you, similar to ePerl or
     HTML::EmbPerl. I personally believe that EP is simpler and better
     extendible than the latter two. the ePerl(1) manpage. the
     HTML::EmbPerl(3) manpage.
@@ -92,10 +92,6 @@ DESCRIPTION
     Storable    Raphael Manfredi's <Raphael_Manfredi@grenoble.hp.com> excellent
                 Storable module is used for storing sessions. I owe him
                 much, as Storable is usefull in a lot of other modules.
-
-    URI         You already know the name Gisle Aas <aas@sn.no>, don't you? :-)
-                URI is yet another of its packages, we need the URI::Escape
-                module.
 
     Perl itself and the above modules are available from any CPAN mirror,
     for example
@@ -163,12 +159,20 @@ DESCRIPTION
     Apache, you can add the following lines to your `srm.conf':
 
         ScriptAlias /cgi-bin/ep.cgi /usr/bin/ep.cgi
-        AddHandler x-ep-script .ep
+        AddType x-ep-script .ep
         Action x-ep-script /cgi-bin/ep.cgi
 
     This tells Apache that files with extension ep.cgi are handled by the
     CGI binary `/usr/bin/ep.cgi'. Make sure, that the ScriptAlias line is
-    entered *before* any other ScriptAlias instruction!
+    entered *before* any other ScriptAlias instruction! In particular, the
+    following would be wrong:
+
+        ScriptAlias /cgi-bin/ /home/httpd/cgi-bin/
+        ...
+        ScriptAlias /cgi-bin/ep.cgi /usr/bin/ep.cgi
+
+    The first rule would be applied before our rule, so that it could never
+    match.
 
     From now on your server will never return files with extension .ep
     directly! Verify your installation by creating the following file:
@@ -181,7 +185,7 @@ DESCRIPTION
 
     (Note that this is a much shorter version of the example in the
     synopsis.) Store it as `/test.ep' on your web server and retrieve the
-    file via your Web server. If you see the time displayed, it are up and
+    file via your Web server. If you see the time displayed, you are up and
     running.
 
   Using mod_perl
@@ -480,6 +484,13 @@ DESCRIPTION
         See the *ep-select* command below for an example of the *range*
         attribute.
 
+        It is possible to nest multiple ep-list statements, as in
+
+          <ep-list range="1..3" item="i"><ep-list range="4..6"
+            item="j">$i$$j$</ep-list></ep-list>
+
+        This will create the output 141516242526343536.
+
     ep-select
         This is similar to ep-list, but it is specifically designed for
         creating SELECT boxes and similar things. We explain it by example:
@@ -697,6 +708,15 @@ DESCRIPTION
     Note the use of the single quotes, which is really required here.
     Available conditions are eq and ne.
 
+    As with ep-list, you may nest multiple ep-if's or combine them with ep-
+    list. The following is invalid, though:
+
+      <ep-list range="1..3" item="i">
+        <ep-if cnd="$i$<3">ok</ep-list></ep-if>
+
+    As the ep-if starts within the ep-list, it must also be terminated
+    before the corresponding /ep-list.
+
   Localization
 
     Localization is available via the HTML::EP::Locale module. Currently it
@@ -902,20 +922,6 @@ DESCRIPTION
     It is not always usefull to fix a method name. In such cases you may
     instead store a code ref in
 
-        $self->{'_ep_custom_formats'}->{'METHODNAME'};
-
-    For example the above could as well be
-
-        <ep-perl>
-            $_->{'_ep_custom_formats'}->{'DM'} = sub {
-                my($self, $val) = @_;
-                sprintf("%.2f DM", $val);
-                $val =~ s/\./,/;
-                $val;
-            };
-            ''
-        </ep-perl>
-
   Modifying the CGI headers
 
     The attribute $self->{'_ep_heaaders'} is containing arguments that you
@@ -1006,7 +1012,7 @@ DEBUGGING
 
         <ep-perl>
             my $self = $_;
-            if ($self->{debug}) { $self->print("I'm here!\n"); }
+            $self->print("I'm here!\n") if $self->{debug};
         </ep-perl>
 
     Note that you should not call the *print* function directly, but the
@@ -1041,8 +1047,6 @@ EXAMPLES
 
       - A POP3 client for the web in examples/pop3.
 
-      - A glimpse based search engine in examples/glimpse.
-
     Other examples are:
 
       - The SNMP monitor, a utility for watching, logging and displaying
@@ -1050,10 +1054,19 @@ EXAMPLES
         See the directory authors/id/JWIED on any CPAN mirror, for example
         ftp://ftp.funet.fi/pub/languages/perl/CPAN.
 
+      - The EP Explorer, an application I wrote for managing printer queues
+        on a Unix hosts. The user can select a file for printing it, much
+        like he did within the Windows explorer. Likewise, he can watch
+        the printer status.
+
+      - The HTML::EP::Glimpse package, a simple search engine based on
+        Glimpse. (In other words, some flavour of WebGlimpse, which is
+        much simpler to install and maintain and allows a free design.)
+
 EXTENSIONS
     It is quite easy to write own methods.
 
-  Single-line extensions
+  Single line extensions
   
 For example, suggest you want a method for setting EP variables:
   
@@ -1084,7 +1097,7 @@ the method name (ep-env in out case) translates all hyphens to
 underscores and adds a leading underscore. We'll see in the next
 section how you can override this behaviour.
 
-  Multi-line extensions
+  Multi line extensions
 
     But how to write methods, that use a `<tag>' .. `</tag>' syntax? As an
     example, we write a method for creating external files. The method
@@ -1104,31 +1117,25 @@ section how you can override this behaviour.
 
         <ep-perl package="HTML::EP">
         # Write a handler for ep-file:
-        sub _ep_file ($$$) {
-            my($self, $attr, $func) = @_;
-            my $contents = $attr->{contents};
-            if (!defined($contents)) { # Multiline method, no "contents"
-                $func->{'default'} = 'contents'; # attribute given; return
-                return undef;          # undef, until we are called
-            }                          # again.
+        sub _ep_file {
+            my $self = shift; my $attr = shift;
+            my $contents = $self->AttrVal($attr->{'contents'}, @_);
             my $file = $attr->{'file'};
             require Symbol;
             my $fh = Symbol::gensym();
-            if (!open($fh, ">$file)  ||  !(print $fh ($contents))  ||
-                !close($fh)) {
-                die "Error while creating $file: $!";
-            }
+            (open($fh, ">$file)  &&  (print $fh $contents)  &&
+                close($fh)) or die "Error while creating $file: $!";
             '';
         }
         # Return an empty string:
         '';
         </ep-perl>
 
-    The main difference to the previous example is that our method is
-    prepared for being called twice: The first time with an undefined
-    *contents* attribute, in which case it returns immediately, the second
-    time with the value being read from the lines between ep-file and /ep-
-    file.
+    The main difference to the previous example is that our method is that a
+    special attribute (*contents*) is defined, that may be passed as part of
+    the ep-file statement. However, if you don't define it as part of the
+    statement, the *AttrVal* method reads more text from the document untill
+    it finds a matching /ep-file.
 
     Note the use of the *Symbol* package when accessing files: *Never* use
     global handles like
@@ -1137,13 +1144,17 @@ section how you can override this behaviour.
 
     as this might break future multithreading code!
 
+    The above example works well, if you don't need to nest your statement.
+    If this should be the case, you need to deal with EP's token streams.
+    See the ep-if and ep-list methods for examples.
+
   External extensions
 
     So far we have discussed only minor extensions that we did install as
     part of HTML::EP. However, this is somewhat dangerous with mod_perl:
     Suggest you have multiple virtual hosts. It might happen, that virtual
     host www.foo.com defines a method ep-file, but www.bar.net defines
-    another. Thus we'd have the classical name clash.
+    another. We'd have an immediate name space clash.
 
     To prevent such a namespace pollution, EP supports external extensions
     with an inheritage model that is borrowed from Perl. Suggest we write a
@@ -1179,7 +1190,7 @@ section how you can override this behaviour.
         <ep-package name="Shop">
         <ep-shop-session>
 
-    This will do a require Shop and bless the object $self into the class
+    This will do a require Shop, bless the object $self into the class
     *Shop* and call $self-init()>. Note that we allow the init method to be
     called more than once, this is important for stacking packages.
 
@@ -1188,59 +1199,6 @@ section how you can override this behaviour.
     path. This can be relative to the servers document root, as in
 
         <ep-package name="Shop" lib="/perl-lib">
-
-  Selfloader methods
-
-    In the above examples the extension methods have been compiled
-    immediately. This is not always a good idea: For example the `ep-mail'
-    method is loading big external packages like *Mail::Internet* for
-    sending the mail. In such cases you might wish to use HTML::EP's builtin
-    self loader, which is quite similar to that of CGI. We choose `ep-mail'
-    as an example:
-
-        <ep-perl package="HTML::EP">
-        my $self = $_;
-        # Create a string that can be compiled for loading the method:
-        $AUTOLOADED_SUBS{_ep_mail} = <<'end_of__ep_mail';
-            require Mail::Internet;
-            sub _ep_mail ($$) {
-                my($self, $attr) = @_;
-                ...
-            }
-        end_of__ep_mail
-
-        $self->{_ep_funcs}->{ep-mail} = { method => '_ep_mail',
-                                          default => 'body' };
-        </ep-perl>
-
-    The advantage is that you have the method available, but the performance
-    penalty of loading it is almost omitted, if the method is not used.
-
-PERFORMANCE CONSIDERATIONS
-    The following are merely hints for general Perl programming, but apply
-    in particular to EP programming:
-
-    Local variables
-            Use local variables instead of hash attributes, as in
-
-                my $debug;
-                if ($debug = $self->{'debug'}) {
-                    ...
-                }
-                if (!$debug) {
-                    ...
-                }
-
-            This is approximately 10-15% faster than the equivalent
-
-                if ($self->{'debug'}) {
-                    ...
-                }
-                if (!$self->{'debug'}) {
-                    ...
-                }
-
-            Of course you win even more with any further use of `$debug'.
 
 CHANGES
     This section describes user visible changes against previous versions.
@@ -1262,9 +1220,9 @@ CHANGES
             structures.
 
 TODO
-            mod_perl support
-
             Create an EP server that is accessible via a small C wrapper
+
+            Add a preprocessor, that creates Perl code as output.
 
 AUTHOR AND COPYRIGHT
     This module is

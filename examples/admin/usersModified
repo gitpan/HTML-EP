@@ -9,9 +9,9 @@ delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 $) = $( = 0;
 $> = $< = 0;
 
-require Symbol;
-require DBI;
-require Getopt::Long;
+use Symbol ();
+use DBI ();
+use Getopt::Long ();
 
 
 ############################################################################
@@ -21,9 +21,10 @@ require Getopt::Long;
 ############################################################################
 
 my $PATH_PASSWD = "/etc/passwd";
-my $PATH_ALIASES = "/etc/aliases";
+my $PATH_ALIASES = "/etc/mail/aliases";
 my $PATH_NEWALIASES = "/usr/bin/newaliases";
-my $PATH_SQUID_CONF = "/etc/squid.conf";
+my $PATH_SQUID_CONF = -f "/etc/squid/squid.conf" ?
+    "/etc/squid/squid.conf" : "/etc/squid.conf";
 
 my $DBI_DSN = 'DBI:mysql:user';
 my $DBI_USER = 'nobody';
@@ -333,9 +334,7 @@ sub ConfigureSquid {
 	    if (!$names{$n}) {
 		$name = $n;
 		if (defined($from)) {
-		    if ($verbose) {
-			print "Adding acl $name $from-$to\n";
-		    }
+		    print "Adding acl $name $from-$to\n" if $verbose;
 		    $acl .= "acl $name src $from-$to\n";
 		}
 		$names{$n} = 1;
@@ -346,17 +345,17 @@ sub ConfigureSquid {
 
     $acl .= "\n";
     foreach my $aclname (keys %names) {
-	print "Adding http_access $aclname\n";
+	print "Adding http_access $aclname\n" if $verbose;
 	$acl .= "http_access allow $aclname\n";
     }
     $acl .= "\n";
     foreach my $aclname (keys %names) {
-	print "Adding icp_access $aclname\n";
+	print "Adding icp_access $aclname\n" if $verbose;
 	$acl .= "icp_access allow $aclname\n";
     }
     $acl .= "\n";
     foreach my $aclname (keys %names) {
-	print "Adding miss_access $aclname\n";
+	print "Adding miss_access $aclname\n" if $verbose;
 	$acl .= "miss_access allow $aclname\n";
     }
     $acl .= "\n";

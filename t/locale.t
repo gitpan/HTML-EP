@@ -6,6 +6,7 @@
 use strict;
 use Getopt::Long ();
 use HTML::EP ();
+use HTML::EP::Locale ();
 
 $^W = 1;
 $| = 1;
@@ -93,19 +94,9 @@ $parser = HTML::EP->new({'debug' => $opt_debug});
 Test2($parser->Run($input), "", "Multi-line Localization.\n");
 
 
-$input = '$&DM->a$ and $&Dollar->b$';
+$input = '<ep-package name="HTML::EP::Locale">$&DM->a$ and $&Dollar->b$';
 my $output = '34,50 DM and 27.10 $';
 $parser = HTML::EP->new();
-$parser->{'_ep_custom_formats'}->{'DM'} = sub {
-    my($self, $var) = @_;
-    $var = sprintf("%.2f DM", $var);
-    $var =~ s/\./,/;
-    $var;
-};
-$parser->{'_ep_custom_formats'}->{'Dollar'} = sub {
-    my($self, $var) = @_;
-    sprintf("%.2f \$", $var);
-};
 $parser->{'a'} = 34.5;
 $parser->{'b'} = 27.1;
 Test2($parser->Run($input), $output, "Custom formatting\n");

@@ -24,8 +24,6 @@ Data::Dumper
 
 Storable
 
-URI::Escape
-
 CGI::Cookie
 
 Bundle::LWP

@@ -9,9 +9,9 @@ $^W = 1;
 $| = 1;
 
 
-print "1..72\n";
+print "1..77\n";
 
-require HTML::EP;
+use HTML::EP ();
 
 my $have_dbd_csv = eval { require DBD::CSV };
 my $have_dbi = eval { require DBI };
@@ -40,6 +40,7 @@ sub Test2($$;@) {
 
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING} = '';
+$ENV{DOCUMENT_ROOT} = '';
 
 
 my $parser = HTML::EP->new();
@@ -168,14 +169,17 @@ foreach my $ref (["eq", 0, 1],
     Test2($parser->{'_ep_output'}, $ref->[2]);
 }
 
-$input = 'a<ep-include file="foo">c';
-$output = 'abc';
 if ((-f "foo"  &&  !unlink("foo"))  ||
     !open(FOO, ">foo")  ||  !(print FOO "b")  ||  !close(FOO)) {
     die "Error while writing 'foo': $!";
 }
 $parser = HTML::EP->new();
-Test2($parser->Run($input), $output, "Include.\n");
+Test2($parser->Run('a<ep-include file="foo">c'), "abc", "Include.\n");
+
+$parser = HTML::EP->new();
+$parser->{'list'} = [1,2,3,4];
+$input = 'a<ep-list items=list item=l>$l$<ep-include file="foo"></ep-list>c';
+Test2($parser->Run($input), "a1b2b3b4bc", "Repeated include.\n");
 
 
 $parser = HTML::EP->new();
@@ -482,13 +486,48 @@ _END_OF_HTML
 
 </HTML>
 _END_OF_HTML
-    $ENV{QUERY_STRING} = 'email=' . URI::Escape::uri_escape($cfg->{email}) .
-        '&mailhost=' . URI::Escape::uri_escape($cfg->{mailhost});
+    $ENV{QUERY_STRING} = 'email=' . CGI->escape($cfg->{email}) .
+        '&mailhost=' . CGI->escape($cfg->{mailhost});
     undef @CGI::QUERY_PARAM; # Arrgh! CGI caches :-(
     $parser = HTML::EP->new();
     Test2($parser->Run($input), $output);
 }
 
 
+print "Checking nested loops.\n";
+$input = q{
+<ep-list range="1..3" item=j
+ ><ep-list range="4..6" item=k
+   ><ep-list range="7..9" item=l>j$j$k$k$l$l$</ep-list></ep-list></ep-list>};
+$output = "\n";
+for (my $j = 1;  $j < 4;  $j++) {
+    for (my $k = 4;  $k < 7;  $k++) {
+	for (my $l = 7;  $l < 10;  $l++) {
+	    $output .= "j${j}k${k}l$l";
+	}
+    }
+}
+$parser = HTML::EP->new();
+Test2($parser->Run($input), $output);
 
-if (-f 'foo') { unlink 'foo' }
+
+print "Checking nested loop/if.\n";
+$input = q{
+<ep-list range="1..4" item=j>a<ep-if cnd="$j$<3">ok$j$</ep-if>b</ep-list>};
+$output = "\naok1baok2babab";
+$parser = HTML::EP->new();
+Test2($parser->Run($input), $output);
+
+
+print "Checking nested if/loop.\n";
+$input = q{<ep-if eval="$a$"><ep-list range="1..4" item=j>a$j$</ep-list></ep-if>};
+$output = "a1a2a3a4";
+$parser = HTML::EP->new();
+$parser->{'a'} = 1;
+Test2($parser->Run($input), $output);
+$parser = HTML::EP->new();
+$parser->{'a'} = 0;
+Test2($parser->Run($input), "");
+
+
+END { unlink 'foo' }

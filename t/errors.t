@@ -50,24 +50,22 @@ sub Test3($$;@) {
     my $c;
     require Symbol;
     {
-	local($|) = 1;
+	local $| = 1;
 	my $fh = Symbol::gensym();
-	if (!open($fh, ">foo.ep")) { die "Cannot create file 'foo.ep': $!"; }
-	if (!print $fh ($a) || !close($fh)) {
-	    die "Error while writing 'foo.ep': $!";
-	}
+	open($fh, ">foo.ep") || die "Cannot create file 'foo.ep': $!";
+	((print $fh $a) && close($fh))
+	    or die "Error while writing 'foo.ep': $!";
     }
     $ENV{PATH_TRANSLATED} = 'foo.ep';
     $ENV{SERVER_ADMIN} = 'root@ispsoft.de';
     my $inc = '';
-    my $i;
-    foreach $i (@INC) {
+    foreach my $i (@INC) {
 	$inc .= " -I$i";
     }
     if (!open(PIPE, "$^X $inc ep.cgi |")) {
 	die "Cannot create pipe: $!";
     }
-    local($/) = undef;
+    local $/ = undef;
     $c = <PIPE>;
     close(PIPE);
     Test2($c, $b, @_);
@@ -95,7 +93,7 @@ content-type: text/html
 <BODY><H1>Fatal internal error</H1>
 <P>An internal error occurred. The error message is:</P>
 <PRE>
-Something strange happened! at (eval 4) line 7.
+Something strange happened! at blib/lib/HTML/EP.pm line 7.
 .
 </PRE>
 <P>Please contact the <A HREF="mailto:root@ispsoft.de">Webmaster</A> and tell him URL, time and error message.</P>
@@ -115,7 +113,7 @@ END_OF_HTML
 $output = <<'END_OF_HTML';
 content-type: text/html
 
-<HTML>Oops: So what! at (eval 5) line 7.
+<HTML>Oops: So what! at blib/lib/HTML/EP.pm line 7.
 </HTML>
 END_OF_HTML
 Test3($input, $output, "Error template.\n");

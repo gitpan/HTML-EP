@@ -22,12 +22,12 @@
 require 5.004;
 use strict;
 
-require HTML::EP;
-require HTML::EP::Locale;
+use HTML::EP ();
+use HTML::EP::Locale ();
 
 package HTML::EP::Examples::Admin;
 
-$HTML::EP::Examples::Admin::VERSION = '0.02';
+$HTML::EP::Examples::Admin::VERSION = '0.03';
 @HTML::EP::Examples::Admin::ISA = qw(HTML::EP::Locale HTML::EP);
 
 

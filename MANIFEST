@@ -10,6 +10,7 @@ lib/HTML/EP.pod			Docs
 lib/HTML/EP/Install.pm
 lib/HTML/EP/EditTable.pm	Editing a DBI table
 lib/HTML/EP/Locale.pm		Localization
+lib/HTML/EP/Parser.pm
 lib/HTML/EP/Session.pm		Session management
 lib/HTML/EP/Session/Cookie.pm	Cookie sessions
 lib/HTML/EP/Session/DBI.pm	DBI sessions
@@ -17,7 +18,6 @@ lib/HTML/EP/Session/DBIq.pm	DBI sessions using quoted column names
 lib/HTML/EP/Session/Dumper.pm	Data::Dumper based sessions
 lib/HTML/EP/Shop.pm		E-Commerce support
 lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration
-lib/HTML/EP/Examples/Glimpse.pm Library for a simple search engine
 lib/HTML/EP/Examples/POP3Client.pm Library for a simple POP3 client
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
@@ -39,13 +39,6 @@ examples/admin/squid_simple.ep	Firewall administration (Same, but simple)
 examples/admin/user.ep		Firewall administration (User managament)
 examples/admin/usersModified	Firewall administration (Backend)
 examples/edit.ep		Generic script for editing DBI tables
-examples/glimpse/README		Search engine (Docs)
-examples/glimpse/admin.ep	Search engine (Main admin page)
-examples/glimpse/advanced.ep	Search engine (Advanced search page)
-examples/glimpse/glimpseindex.ep Search engine (Building the index)
-examples/glimpse/index.ep	Search engine (Creating the query)
-examples/glimpse/prefs.ep	Search engine (Setting the Prefs)
-examples/glimpse/search.ep	Search engine (Displaying the results)
 examples/pop3/delete.ep		POP3 Client (Deleting a mail)
 examples/pop3/index.ep		POP3 Client (Welcome page)
 examples/pop3/list.ep		POP3 Client (Mailbox list)

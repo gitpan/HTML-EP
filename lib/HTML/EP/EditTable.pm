@@ -118,11 +118,11 @@ sub _ep_edittable_select {
 	    } elsif ($type eq '_like') {
 		push(@where, "$col LIKE " . $dbh->quote("%$val")) if $val;
 	    }
-	    push(@url, "$key=" . URI::Escape::uri_escape($val));
+	    push(@url, "$key=" . CGI->escape($val));
 	} elsif ($key =~ /^order_(\w+)_(.*)/) {
 	    push(@order, "$2 $1");
 	    my $val = $cgi->param($2);
-	    push(@url, "$key=" . URI::Escape::uri_escape($val));
+	    push(@url, "$key=" . CGI->escape($val));
 	}
     }
 

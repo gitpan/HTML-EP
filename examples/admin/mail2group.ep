@@ -36,7 +36,8 @@
 	}
     }
 
-    $self->{'_ep_custom_formats'}->{'SELECTED'} = sub {
+    package HTML::EP::Locale;
+    sub _format_SELECTED {
 	my $self = shift; my $option = shift;
         $option ? " SELECTED" : "";
     };

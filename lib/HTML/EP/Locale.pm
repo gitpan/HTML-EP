@@ -22,7 +22,7 @@
 require 5.004;
 use strict;
 
-require HTML::EP;
+use HTML::EP ();
 
 
 package HTML::EP::Locale;
@@ -41,8 +41,8 @@ sub init ($$) {
     if ($attr->{'accept-language'}) {
 	@offered = split(/,/, $attr->{'accept-language'});
     }
-   @offered = ($self->{'_ep_config'}->{'default_language'}, "en")
-       unless @offered;
+    @offered = ($self->{'_ep_config'}->{'default_language'}, "en")
+	unless @offered;
 
     # Next, try to guess what the user wants. First let's see, if there
     # is a CGI variable 'language'.
@@ -67,43 +67,41 @@ sub init ($$) {
 }
 
 
-sub _ep_language ($$;$) {
-    my($self, $attr, $func) = @_;
+sub _ep_language {
+    my($self, $attr, $tokens) = @_;
     my $language = $self->{'_ep_language'};
     my $debug = $self->{'debug'};
-    if (my $lang = $attr->{'language'}) {
-	my $state = ($lang eq $language);
-	if (!defined($attr->{'string'})) {
-	    my $stack = $self->{_ep_stack};
-	    if (@$stack) {
-		my $pop = $stack->[$#$stack];
-		if ($pop->{'tag'} eq 'ep-language') {
-		    $self->{'_ep_language_output'} .= $self->{'_ep_output'}
-			if $self->{'_ep_state'};
-		    $self->{'_ep_state'} = $state;
-		    $self->print("ep-else-language: state = $state\n")
-			if $debug;
-		    $pop->{'attr'}->{'language'} = $lang;
-		    return ($self->{'_ep_output'} = '');
+    return exists $attr->{$language} ? $attr->{$language} : ''
+	unless exists $attr->{'language'};
+
+    my $level = 0;
+    my $state = $attr->{'language'} eq $language;
+    my $state_done = $state;
+    my $start = $tokens->First() if $state;
+    my $last;
+    while (defined(my $token = $tokens->Token())) {
+	if ($token->{'type'} eq 'S') {
+	    if ($token->{'tag'} eq 'ep-language') {
+		if ($state) {
+		    $last = $tokens->First()-1;
+		    $state = 0;
+		} elsif (!$state_done) {
+		    my $at = $self->ParseAttr($token->{'attr'});
+		    if ($state = ($at->{'language'} eq $language)) {
+			$start = $tokens->First();
+			$state_done = 1;
+		    }
 		}
 	    }
-	    $self->{'_ep_state'} = $state;
-	    $self->{'_ep_language_output'} = '';
-	    $func->{'default'} ||= 'string';
-	    $func->{'always'} ||= 1;
-	    $self->print("ep-language: state = $state\n")
-		if $debug;
-	    return undef;
+	} elsif ($token->{'type'} eq 'E') {
+	    if ($token->{'tag'} eq 'ep-language') {
+		return '' unless $state_done;
+		$last = $tokens->First()-1 if $state;
+		return $self->TokenMarch($tokens->Clone($start, $last));
+	    }
 	}
-	$self->printf("/ep-language: output = %s\n",
-		      $self->{'_ep_language_output'} .
-		      ($state ? $attr->{'string'} : ''))
-	    if $debug;
-	$self->{'_ep_language_output'} .
-	    ($state ? $attr->{'string'} : '');
-    } else {
-	exists($attr->{$language}) ? $attr->{$language} : '';
     }
+    die "ep-language without /ep-language";
 }
 
 
@@ -116,12 +114,15 @@ sub _format_DM {
     $str;
 }
 
+sub _format_Dollar {
+    my $self = shift; my $str = shift;
+    $str = sprintf("%.2f \$", $str);
+    while ($str =~ s/(\d)(\d\d\d[,\s])/$1 $2/) {
+    }
+    $str;
+}
 
-$HTML::EP::Locale::AUTOLOADED_ROUTINES = <<'AUTOLOADED_ROUTINES';
 
-(
-
-'_format_TIME' => <<'_end_of_format_TIME',
 sub _format_TIME {
     my $self = shift;  my $date = shift;
     if ($self->{'_ep_language'} eq 'de') {
@@ -150,10 +151,5 @@ sub _format_TIME {
     }
     $date;
 }
-_end_of_format_TIME
-
-)
-
-AUTOLOADED_ROUTINES
 
 1;

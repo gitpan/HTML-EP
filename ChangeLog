@@ -1,3 +1,9 @@
+1999-09-24  Jochen Wiedmann  <joe@ispsoft.de> (0.20_00)
+
+	* Merged in patches of Jason McMullan (jmcc@ontv.com) for
+	  nested ep-list. A major update!
+	* Replaced URI::Escape::uri_escape with CGI->escape
+
 1999-09-19  Jochen Wiedmann  <joe@ispsoft.de> (0.1135)
 
 	* lib/HTML/EP.pm (_ep_input): Added handling of NULL dates.

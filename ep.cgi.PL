@@ -45,8 +45,8 @@ my $script = <<'END_OF_SCRIPT';
 require 5.004;
 use strict;
 
-require HTML::EP;
-require HTML::EP::Config;
+use HTML::EP ();
+use HTML::EP::Config ();
 
 
 $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
