@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1108';
+$HTML::EP::VERSION = '0.1109';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -978,6 +978,7 @@ sub _ep_mail ($$;$) {
     my($self, $attr, $func) = @_;
     my $body = delete $attr->{body};
     my $host = (delete $attr->{mailserver}) || '~mailhost~';
+    my @options = ('Host' => $host);
     if (!defined($body)) {
 	return undef;
     }
@@ -989,12 +990,17 @@ sub _ep_mail ($$;$) {
 	    die "Missing header attribute: $header";
 	}
     }
-    foreach $header ('to', 'cc', 'bcc') {
-	if ($attr->{$header}) {
-	    foreach $val (split (/,/, $attr->{$header})) {
-		$msg->add($header, $val);
+    foreach $header ('To', 'Cc', 'Bcc') {
+	my $h = lc $header;
+	if ($attr->{$h}) {
+	    my $list = [split (/,/, $attr->{$h})];
+	    push(@options, $header, $list);
+	    if ($header ne 'Bcc') {
+		foreach $val (@$list) {
+		    $msg->add($h, $val);
+		}
 	    }
-	    delete $attr->{$header};
+	    delete $attr->{$h};
 	}
     }
     while (($header, $val) = each %$attr) {
@@ -1002,8 +1008,10 @@ sub _ep_mail ($$;$) {
     }
     require Mail::Internet;
     my $mail = Mail::Internet->new([$self->ParseVars($body)], Header => $msg);
-    $ENV{SMTPHOSTS} = $host; # No way to do this with $self->{env} :-(
-    $mail->smtpsend();
+    $Mail::Util::mailaddress = $attr->{'from'}; # Ugly hack to prevent
+                                                # DNS lookup for 'mailhost'
+                                                # in Mail::Util::mailaddress().
+    $mail->smtpsend(@options);
     '';
 }
 end_of__ep_mail

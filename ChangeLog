@@ -1,4 +1,8 @@
-1998-09-17  Jochen Wiedmann  <joe@ispsoft.de>
+1998-10-06  Jochen Wiedmann  <joe@ispsoft.de> (0.1109)
+
+	* EP.pm.in (_ep_mail): Requires MailTools 1.12 now.
+
+1998-09-17  Jochen Wiedmann  <joe@ispsoft.de> (0.1108)
 
 	* lib/HTML/EP/Locale.pm (_ep_language): Added debugging.
 	* lib/HTML/EP/Session.pm (store): Now using bind_param() for
