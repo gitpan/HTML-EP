@@ -86,6 +86,21 @@ MESSAGE
 }
 
 
+eval "use HTML::EP ();";
+if (!$@  &&  $HTML::EP::VERSION < 0.1100) {
+    print <<'MSG';
+
+You seem to have installed a recent version of HTML::EP. There have been
+important changes in the current version that may break existing code:
+The "epparse-" and "epperl-" attributes have been removed. See the CHANGES
+section in the manual for details. (In short all you have to do is removing
+the "epperl-" and "epparse-" markers, the package ought to detect
+automatically that it should parse or evaluate attributes.)
+
+MSG
+}
+
+
 my $cfg = {};
 my $create = exists($ENV{CREATE_ONLY});
 if (-f "configuration") {

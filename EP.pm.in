@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1006';
+$HTML::EP::VERSION = '0.1100';
 @HTML::EP::ISA = qw(HTML::Parser);
 
 
@@ -183,31 +183,15 @@ sub start ($$$$$) {
 	    return;
 	}
 
-	my($var, @parseList, @perlList);
-	foreach $var (keys %$attr) {
-	    if ($var =~ /^ep(parse|perl)-(.*)/) {
-		my $type = $1;
-		my $v = $2;
-		if ($type eq 'parse') {
-		    push(@parseList, $v);
-		} else {
-		    push(@perlList, $v);
-		}
+	my($var, $val);
+	while (($var, $val) = each %$attr) {
+	    if ($val =~ /\$\_\W/) {
+		$_ = $self;
+		$attr->{$var} = eval $val;
+		if ($@) { die $@ };
+	    } elsif ($val =~ /\$/) {
+		$attr->{$var} = $self->ParseVars($val);
 	    }
-	}
-	while (defined($var = shift @parseList)) {
-	    $attr->{$var} = $self->ParseVars(delete $attr->{"epparse-$var"});
-	}
-	while (defined($var = shift @perlList)) {
-	    my $str = delete $attr->{"epperl-$var"};
-	    my $compartment = $self->{_ep_compartment};
-	    if (!$compartment) {
-		require Safe;
-		$compartment = $self->{_ep_compartment} = Safe->new();
-	    }
-	    $@ = '';
-	    $_ = $self;
-	    $attr->{$var} = $compartment->reval($str);
 	}
 
 	my $method = $func->{method};

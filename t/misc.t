@@ -231,7 +231,7 @@ Test2($parser->Run($input), $output, "Object list input.\n");
 
 $input = <<'_END_OF_HTML';
 <HTML>
-<ep-if epperl-eval="$_->{i}==0">0<ep-elseif epperl-eval="$_->{i}==1">1<ep-elseif epperl-eval="$_->{i}==2">2<ep-else>3</ep-if>
+<ep-if eval="$_->{i}==0">0<ep-elseif eval="$_->{i}==1">1<ep-elseif eval="$_->{i}==2">2<ep-else>3</ep-if>
 </HTML>
 _END_OF_HTML
 
@@ -249,13 +249,13 @@ _END_OF_HTML
 
 $input = <<'_END_OF_HTML';
 <HTML>
-<ep-if epperl-eval="$_->{i}<0">
+<ep-if eval="$_->{i}<0">
     i is < 0.
-<ep-elseif epperl-eval="$_->{i}==0">
+<ep-elseif eval="$_->{i}==0">
     i equals 0.
-<ep-elseif epperl-eval="$_->{j}<0">
+<ep-elseif eval="$_->{j}<0">
     j is < 0.
-<ep-elseif epperl-eval="$_->{j}==0">
+<ep-elseif eval="$_->{j}==0">
     j equals 0.
 <ep-else>
     Both numbers are > 0.
@@ -293,13 +293,13 @@ _END_OF_HTML
 
 $input = <<'_END_OF_HTML';
 <HTML>
-<ep-if epperl-eval="$_->{i}<0">
+<ep-if eval="$_->{i}<0">
     i is < 0.
-<ep-elseif epperl-eval="$_->{i}==0">
+<ep-elseif eval="$_->{i}==0">
     i equals 0.
-<ep-else><ep-if epperl-eval="$_->{j}<0">
+<ep-else><ep-if eval="$_->{j}<0">
     j is < 0.
-<ep-elseif epperl-eval="$_->{j}==0">
+<ep-elseif eval="$_->{j}==0">
     j equals 0.
 <ep-else>
     Both numbers are > 0.
@@ -334,7 +334,7 @@ if (!$cfg->{email}  ||  $cfg->{email} eq 'none'  ||  !$cfg->{mailhost}) {
           $cfg->{mailhost}, "\n");
     $input = <<'_END_OF_HTML';
 <HTML>
-<ep-mail from="joe@ispsoft.de" epparse-to="$cgi->email$" subject="Testmail">
+<ep-mail from="joe@ispsoft.de" to="$cgi->email$" subject="Testmail">
 
 Hello,
 

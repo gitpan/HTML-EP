@@ -17,6 +17,11 @@ require HTML::EP;
 	print "ok $numTests\n";
 	$result;
     }
+
+    sub SkipTest() {
+	++$numTests;
+	print "ok $numTests # Skip\n";
+    }
 }
 
 sub Test2($$;@) {
@@ -45,7 +50,7 @@ Test2($self->ParseVars('$a$'), '1', "Simple strings (HTML encoded)\n");
 Test2($self->ParseVars('$@a$'), '1', "Simple strings (Raw)\n");
 Test2($self->ParseVars('$#a$'), '1', "Simple strings (URL encoded)\n");
 if (!$dbh) {
-    Test(1);
+    SkipTest();
 } else {
     Test2($self->ParseVars('$~a$'), "'1'", "Simple strings (DBI quoted)\n");
 }
@@ -56,8 +61,12 @@ Test2($self->ParseVars('$@b$'), 'Obelix GmbH & Co KG',
     "HTML strings (Raw)\n");
 Test2($self->ParseVars('$#b$'), 'Obelix%20GmbH%20&%20Co%20KG',
      "HTML strings (URL encoded)\n");
-Test2($self->ParseVars('$~b$'), "'Obelix GmbH \& Co KG'",
-     "HTML strings (DBI quoted)\n");
+if (!$dbh) {
+    SkipTest();
+} else {
+    Test2($self->ParseVars('$~b$'), "'Obelix GmbH \& Co KG'",
+          "HTML strings (DBI quoted)\n");
+}
 
 Test2($self->ParseVars('$t_hash_ref->f$'), 'foo', "Hash dereferencing\n");
 Test2($self->ParseVars('$t_hash_ref->g$'), 'bar', "Hash dereferencing\n");

@@ -38,22 +38,6 @@ WARNING
     stability. In particular the following things might change without
     further notice:
 
-            The way of passing variables as attributes. For example, currently
-            one can use
-
-                <ep-mail epparse-from="$cgi->email$" to="joe"
-                         subject="Test mail">
-
-            to pass the form variable *email* into method calls. I consider
-            changing this to
-
-                <ep-mail from="$cgi->email$" to="joe" subject="Test mail"
-                         parse=1>
-
-            or whatever. The decision mainly depends on performance
-            considerations and readability. See the section on "Variables"
-            below.
-
             The C interface of introducing own methods. This depends on whether
             I need changes for inserting the module into mod_perl. See the
             section on "TODO" below.
@@ -152,6 +136,12 @@ DESCRIPTION
 
   Using the CGI binary
 
+    You have different options for integrating EP into your WWW server,
+    depending on which server you are using and the permissions you have.
+    The simplest possibility is running an external CGI binary. Another
+    option is to use mod_perl with Apache, see the section on "Using
+    mod_perl" below.
+
     I suggest that you choose an extension and configure your WWW server for
     feeding files with this extension into `ep.cgi'. For example, with
     Apache, you can add the following lines to your `srm.conf':
@@ -167,14 +157,29 @@ DESCRIPTION
     From now on your server will never return files with extension .ep
     directly! Verify your installation by creating the following file:
 
-        <ep-perl>
-        print "content-type: text/plain\n\n";
-        print "It worked! Your EP system is up and running.\n";
-        </ep-perl>
+        <html><head><title>Local time</time></head>
+        <body>
+        The current time is:
+        <ep-perl>scalar(localtime(time))</ep-perl>
+        </body>
 
     Store it as `/test.ep' on your web server and retrieve the file via your
-    Web server. You should neither see the `ep-perl' not the `print'
-    instructions.
+    Web server. If you see the time displayed, it are up and running.
+
+  Using mod_perl
+
+    The EP package can be integrated into mod_perl, for example by using the
+    following commands in `srm.conf':
+
+        <Files *.ep>
+          SetHandler perl-script
+          PerlHandler Apache::EP->handler
+          Options ExecCGI
+        </Files>
+
+    Keep in mind, that mod_perl differs in many details from programming CGI
+    binaries. In particular you might need to restart Apache for loading
+    changes in modules.
 
   Available methods
 
@@ -295,8 +300,7 @@ DESCRIPTION
         Note, that you can still use EP variables in the E-mail body, for
         example the following works:
 
-            <ep-mail subject="Test" epparse-from="$cgi->email$"
-                     to="joe@ispsoft.de">
+            <ep-mail subject="Test" from="$cgi->email$" to="joe@ispsoft.de">
                 Hello, Joe,
                 this e-mail was sent to you by $@cgi->name$.
             </ep-mail>
@@ -347,7 +351,7 @@ DESCRIPTION
             <ep-comment>
                 If no email address was entered, force a user error.
             </ep-comment>
-            <ep-if epparse-eval="$cgi->email$" type=user>
+            <ep-if eval="$cgi->email$" type=user>
                 <ep-error msg="Missing email address">
             </ep-if>
 
@@ -428,7 +432,7 @@ DESCRIPTION
         creating SELECT boxes and similar things. We explain it by example:
 
             <ep-select name="year" range="1991..1995" item="y"
-                       epparse-selected="$cgi->year$">
+                       selected="$cgi->year$">
                 <OPTION $selected$>$y$</ep-select>
 
         If you supply a *selected* attribute, then a variable *selected*
@@ -499,7 +503,7 @@ DESCRIPTION
               }
               ''
             </ep-perl>
-            <ep-mail epparse-from="$cgi->email$" to="order@mydomain"
+            <ep-mail from="$cgi->email$" to="order@mydomain"
                      subject="Order form">
               The following items have been ordered:
 
@@ -666,18 +670,14 @@ DESCRIPTION
     You can even use these symbols in attributes of EP commands. For
     example, the following will be usefull when sending a mail:
 
-        <ep-mail subject="Howdy!" epparse-from="$@cgi->email$"
+        <ep-mail subject="Howdy!" from="$@cgi->email$"
                  to="bill@whitehouse.gov">
 
-    By prefixing the attribute name with `epparse-' you tell the EP module
-    that the attribute must be parsed before processing it. (Note, that one
-    doesn't use an HTML encoded value in that case!) Another prefix is
-    `epperl-': In this case the attribute will be evaluated by the Perl
-    interpreter, much similar to the ep-perl method. The perl code's result
-    will be used as final attribute value.
-
-    WARNING: As already said, use of `epparse-' and `epperl-' is dangerous,
-    as these things are likely to be changed in the future.
+    Attributes may include EP variables, just like ordinary HTML code. Even
+    more, they may contain Perl code which is evaluated just like code
+    between `<ep-perl>' and `</ep-perl>'. However, you need to use the
+    variable `$_' in the code, because the package otherwise doesn't detect
+    what you want it to do.
 
   Producing Non-HTML
 
@@ -915,6 +915,25 @@ EXTENSIONS
     but this will change in the future. The *isa* attribute can be omitted
     and defaults to `HTML::EP'. Otherwise it is a blank separated list of
     package names, just like @ISA is.
+
+CHANGES
+    This section describes user visible changes against previous versions.
+    For details and other modifications see the `ChangeLog' file, that is
+    part of the distribution.
+
+    epparse
+    epperl  In previous versions it was not possible to include EP variables or
+            Perl code in attributes of EP commands, unless using a prefix
+            `epparse-' or `epperl-', as in
+
+                <ep-mail to=joe epparse-from="$cgi->mail$" subject=Hello>
+
+            This is no longer the case, because the package now autodetects
+            whether you are using such constructs. (At least it should. :-)
+            The obvious disadvantage is an incompatibility, but the new
+            version is much better readable and surprisingly even (much!)
+            faster, because only hash values are modified and not hash
+            structures.
 
 TODO
             mod_perl support
