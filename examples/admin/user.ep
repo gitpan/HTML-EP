@@ -150,6 +150,15 @@
 	 { 'shell' => '/bin/ftpok', 'status' => 'Mail und FTP' },
 	 { 'shell' => '/bin/bash', 'status' => 'Administrator' }
 	 ];
+
+    package HTML::EP;
+    sub _format_SHELL_SELECTED {
+	my $self = shift;  my $val = shift;
+	(exists($self->{'user'})  and
+	 $self->{'user'}->{'SHELL'}->{'val'} eq $val) ?
+	     'SELECTED' : '';
+    }
+
     '';
 </ep-perl>
 <html><head><title>
@@ -183,9 +192,8 @@ $output$
 <tr><th><ep-language de="Benutzername" en="Login">:</th>
     <td><input name="user_t_USER" value="$user->USER->val$"></td>
 <tr><th><ep-language de="Benutzerstatus" en="User status">:</th>
-    <td><ep-select name="user_t_SHELL" items="shells" item="s"
-	 selected="$user->SHELL->val$">
-	  <option value="$s->shell$" $selected$>$s->status$
+    <td><ep-select name="user_t_SHELL" items="shells" item="s">
+	  <option value="$s->shell$" $&SHELL_SELECTED->s->shell$>$s->status$
         </ep-select></td>
 <tr><th>UID:</th>
     <td><ep-if eval="$user->UID->val$">$user->UID->val$

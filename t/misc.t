@@ -1,4 +1,7 @@
 # -*- perl -*-
+#
+# $Id: misc.t,v 1.4 1999/02/07 20:02:38 joe Exp $
+#
 
 use strict;
 
@@ -6,7 +9,7 @@ $^W = 1;
 $| = 1;
 
 
-print "1..56\n";
+print "1..72\n";
 
 require HTML::EP;
 
@@ -115,6 +118,55 @@ $parser->{'a'} = 1;
 eval { $parser->Run($input) }; 
 Test2($parser->{'_ep_output'}, $output, "Exit 4\n");
 
+print "Testing conditions: neval, ==, !=, <, >, <=, >=, eq, ne\n";
+$input = q{<ep-if neval="$a$">a is not set<ep-else>a is set</ep-if>};
+$parser = HTML::EP->new();
+$parser->{'a'} = 1;
+eval { $parser->Run($input) };
+Test2($parser->{'_ep_output'}, "a is set");
+$parser = HTML::EP->new();
+$parser->{'a'} = 0;
+eval { $parser->Run($input) };
+Test2($parser->{'_ep_output'}, "a is not set");
+
+foreach my $ref (["==", 0, 1, 0],
+		 ["!=", 1, 0, 1],
+		 ["<", 1, 0, 0],
+		 [">", 0, 0, 1],
+		 ["<=", 1, 1, 0],
+		 [">=", 0, 1, 1]) {
+    $input = q{<ep-if cnd="$a$} . $ref->[0] . q{$b$">1<ep-else>0</ep-if>};
+    $parser = HTML::EP->new();
+    $parser->{'a'} = 1;
+    $parser->{'b'} = 2;
+    eval { $parser->Run($input) };
+    Test2($parser->{'_ep_output'}, $ref->[1]);
+    $parser = HTML::EP->new();
+    $parser->{'a'} = 1;
+    $parser->{'b'} = 1;
+    eval { $parser->Run($input) };
+    Test2($parser->{'_ep_output'}, $ref->[2]);
+    $parser = HTML::EP->new();
+    $parser->{'a'} = 2;
+    $parser->{'b'} = 1;
+    eval { $parser->Run($input) };
+    Test2($parser->{'_ep_output'}, $ref->[3]);
+}
+
+foreach my $ref (["eq", 0, 1],
+		 ["ne", 1, 0]) {
+    $input = q{<ep-if cnd="'$a$'} . $ref->[0] . q{'$b$'">1<ep-else>0</ep-if>};
+    $parser = HTML::EP->new();
+    $parser->{'a'} = 1;
+    $parser->{'b'} = 2;
+    eval { $parser->Run($input) };
+    Test2($parser->{'_ep_output'}, $ref->[1]);
+    $parser = HTML::EP->new();
+    $parser->{'a'} = 1;
+    $parser->{'b'} = 1;
+    eval { $parser->Run($input) };
+    Test2($parser->{'_ep_output'}, $ref->[2]);
+}
 
 $input = 'a<ep-include file="foo">c';
 $output = 'abc';
@@ -149,31 +201,6 @@ $output = <<'_END_OF_HTML';
 </HTML>
 _END_OF_HTML
 Test2($parser->Run($input), $output, "Multi-line Perl expression.\n");
-
-
-$input = '<ep-package name="HTML::EP::Locale">'
-    . '<ep-language de="Deutsch" en="English">';
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
-Test2($parser->Run($input), "Deutsch", "Single-line Localization.\n");
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
-Test2($parser->Run($input), "English", "Single-line Localization.\n");
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
-Test2($parser->Run($input), "", "Single-line Localization.\n");
-$input = '<ep-package name="HTML::EP::Locale">'
-    . '<ep-language language=de>Deutsch</ep-language>'
-    . '<ep-language language=en>English</ep-language>';
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
-Test2($parser->Run($input), "Deutsch", "Multi-line Localization.\n");
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
-Test2($parser->Run($input), "English", "Multi-line Localization.\n");
-$parser = HTML::EP->new();
-$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
-Test2($parser->Run($input), "", "Multi-line Localization.\n");
 
 
 if (!$have_dbi  ||  !$have_dbd_csv) {
@@ -461,32 +488,6 @@ _END_OF_HTML
     $parser = HTML::EP->new();
     Test2($parser->Run($input), $output);
 }
-
-
-$input = '$&DM->a$ and $&Dollar->b$';
-$output = '34,50 DM and 27.10 $';
-$parser = HTML::EP->new();
-$parser->{'_ep_custom_formats'}->{'DM'} = sub {
-    my($self, $var) = @_;
-    $var = sprintf("%.2f DM", $var);
-    $var =~ s/\./,/;
-    $var;
-};
-$parser->{'_ep_custom_formats'}->{'Dollar'} = sub {
-    my($self, $var) = @_;
-    sprintf("%.2f \$", $var);
-};
-$parser->{'a'} = 34.5;
-$parser->{'b'} = 27.1;
-Test2($parser->Run($input), $output, "Custom formatting\n");
-
-$input = '<ep-package name="HTML::EP::Locale">$&DM->a$ and $&DM->b$';
-$output = '1 234 567,50 DM and 273 682,00 DM';
-$parser = HTML::EP->new();
-$parser->{'a'} = 1234567.5;
-$parser->{'b'} = 273682;
-$parser->{'env'} = { 'PATH_TRANSLATED' => '' };
-Test2($parser->Run($input), $output, "Locale's custom formatting\n");
 
 
 

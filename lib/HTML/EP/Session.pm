@@ -71,6 +71,11 @@ sub _ep_session_store {
 
     my $id = $self->{'_ep_session_id'} || die "No session ID given";
     my $session = $self->{$self->{'_ep_session_var'}} || die "No session";
+    if ($self->{'debug'}) {
+	require Data::Dumper;
+	$self->print("Storing session: ", Data::Dumper::Dumper($session),
+		     "\n");
+    }
     $session->store($self, $id, $attr->{'locked'});
     '';
 }

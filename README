@@ -72,7 +72,8 @@ DESCRIPTION
     CGI         The CGI module should be a part of your Perl core's
                 installation. If not, you should definitely upgrade to Perl
                 5.004. :-) My thanks to Lincoln D. Stein
-                <lstein@genome.wi.mit.edu>.
+                <lstein@genome.wi.mit.edu>. Note, you need a late version,
+                including the CGI::Cookie module.
 
     HTML::Parser
                 This module is used for parsing the HTML templates. My
@@ -81,6 +82,20 @@ DESCRIPTION
     libwww      The LWP library contains a lot of utility functions, for example
                 HTML and URL encoding and decoding. Again, my thanks to
                 Gisle Aas <aas@sn.no>. :-)
+
+    Mail::Internet
+                Graham Barr <gbarr@pobox.com> wrote the MailTools package.
+                Some parts of it, in particular the Mail::Internet module is
+                used for sending mail from within the HTML page. Thank very
+                much, Graham!
+
+    Storable    Raphael Manfredi's <Raphael_Manfredi@grenoble.hp.com> excellent
+                Storable module is used for storing sessions. I owe him
+                much, as Storable is usefull in a lot of other modules.
+
+    URI         You already know the name Gisle Aas <aas@sn.no>, don't you? :-)
+                URI is yet another of its packages, we need the URI::Escape
+                module.
 
     Perl itself and the above modules are available from any CPAN mirror,
     for example
@@ -96,19 +111,23 @@ DESCRIPTION
     simple, if you have the CPAN module available and network access, you
     might try an automatic installation:
 
-            perl -MCPAN -e 'CPAN->install("Bundle::HTML::EP")'
+            perl -MCPAN -e shell
+
+    If the CPAN prompt appears, asking you for commands, enter
+
+            install Bundle::HTML::EP
 
   Manual Installation
 
     If automatic installation doesn't work, you just fetch the archive,
     extract it with
 
-        gzip -cd HTML-EP-0.1000.tar.gz | tar xf -
+        gzip -cd HTML-EP-0.1125.tar.gz | tar xf -
 
     (this is for Unix users, Windows users would prefer WinZip or something
     similar) and then enter the following:
 
-        cd HTML-EP-0.1000
+        cd HTML-EP-0.1125
         perl Makefile.PL
         make
         make test
@@ -170,6 +189,7 @@ DESCRIPTION
     The EP package can be integrated into mod_perl, for example by using the
     following commands in `srm.conf':
 
+        PerlModule Apache::EP
         <Files *.ep>
           SetHandler perl-script
           PerlHandler Apache::EP->handler
@@ -319,7 +339,7 @@ DESCRIPTION
         Recent sendmail versions are quite picky about validity of email
         addresses. Thus it is highly recommended that you use valid
         addresses for the *to* and *from* fields. If you want to customize
-        the sender, you'd better still fix the *from* field and modify the
+        the sender, you'd better choose a fixed *from* field and modify the
         *reply-to* field only, as in the example above.
 
     ep-errhandler
@@ -600,14 +620,14 @@ DESCRIPTION
         <html><head><title>Conditional HTML</title></head>
         <body>
           <h1>Conditional HTML</h1>
-          <ep-if epperl-eval="$_->{cgi}->param('i') < 0">
+          <ep-if eval="$_->{cgi}->param('i') < 0">
             You have entered a negative number for i!
-          <ep-else epperl-eval="$_->{cgi}->param('i') == 0">
+          <ep-else eval="$_->{cgi}->param('i') == 0">
             You have entered zero for i!
           <ep-else>
-            <ep-if epperl-eval="$_->{cgi}->param('j') < 0">
+            <ep-if eval="$_->{cgi}->param('j') < 0">
               You have entered a negative number for j!
-            <ep-else epperl-eval="$_->{cgi}->param('h') == 0">
+            <ep-else eval="$_->{cgi}->param('h') == 0">
               You have entered zero for j!
             <ep-else>
               Ok, both numbers are positive.
@@ -620,6 +640,34 @@ DESCRIPTION
     single ep-perl in that case, but it shows that we can use arbitrary
     complex structures of conditional HTML.
 
+    The *eval* attribute is simply treated as a truth value, as in Perl.
+    Thus empty strings or numeric zeros are FALSE, everything else is TRUE.
+    This is reversed, if you replace *eval* with *neval*:
+
+        <ep-if neval="$a$">
+          a is not set
+        <ep-else>
+          a is set
+        </ep-if>
+
+    If you'd like to compare numeric values, use the *cnd* attribute, as in
+
+        <ep-if cnd="$a$<$b$">
+          a is lower than b
+        <ep-else>
+          a is greater than or equal to b
+        </ep-if>
+
+    You may choose either of ==, !=, <, >, <= or >= for the condition. And
+    finally you may compare string values like this:
+
+        <ep-if cnd="'$a$' eq '$b$'">
+          a is equal to b
+        </ep-if>
+
+    Note the use of the single quotes, which is really required here.
+    Available conditions are eq and ne.
+
   Localization
 
     Localization is available via the HTML::EP::Locale module. Currently it
@@ -627,7 +675,7 @@ DESCRIPTION
 
     To access the module, start your HTML page with
 
-        <ep-package name="HTML::EP::Locale" require=1>
+        <ep-package name="HTML::EP::Locale">
 
     When the package is loaded, it tries to guess your documents language.
     The default language is *de* (german; I ought to make this
@@ -642,8 +690,8 @@ DESCRIPTION
 
         mypage.en.ep
 
-    Two methods are available for localizing strings. For short strings like
-    titles, headers or Link refs you might prefer this version:
+    Two possibilities are available for localizing strings. For short
+    strings like titles, headers or Link refs you might prefer this version:
 
         <ep-language de="Titel" en="Title">
 
@@ -653,11 +701,13 @@ DESCRIPTION
         <ep-language language=de>
           <p>Dies ist ein Absatz.</p>
           <p>Dies ist der zweite Absatz.</p>
-        </ep-language>
         <ep-language language=en>
           <p>This is one paragraph.</p>
           <p>This is another paragraph.</p>
         </ep-language>
+
+    Note you need not use a /ep-language for terminating the german part,
+    similar to the ep-if, ep-elseif, ..., ep-else, /ep-if structure.
 
   Error handling
 
@@ -813,7 +863,7 @@ DESCRIPTION
 
         $self->_format_METHODNAME($self->{'var'});
 
-    It is not always useful to fix a method name. In such cases you may
+    It is not always usefull to fix a method name. In such cases you may
     instead store a code ref in
 
         $self->{'_ep_custom_formats'}->{'METHODNAME'};
@@ -953,6 +1003,10 @@ EXAMPLES
 
       - A generic frontend for editing DBI tables in examples/edit.ep
 
+      - A POP3 client for the web in examples/pop3.
+
+      - A glimpse based search engine in examples/glimpse.
+
     Other examples are:
 
       - The SNMP monitor, a utility for watching, logging and displaying
@@ -1014,13 +1068,14 @@ section how you can override this behaviour.
 
         <ep-perl package="HTML::EP">
         # Write a handler for ep-file:
-        sub _ep_file ($$) {
-            my($self, $attr) = @_;
+        sub _ep_file ($$$) {
+            my($self, $attr, $func) = @_;
             my $contents = $attr->{contents};
             if (!defined($contents)) { # Multiline method, no "contents"
-                return undef;          # attribute given; return undef
-            }                          # until we are called again.
-            my $file = $attr->{file};
+                $func->{'default'} = 'contents'; # attribute given; return
+                return undef;          # undef, until we are called
+            }                          # again.
+            my $file = $attr->{'file'};
             require Symbol;
             my $fh = Symbol::gensym();
             if (!open($fh, ">$file)  ||  !(print $fh ($contents))  ||
@@ -1029,26 +1084,15 @@ section how you can override this behaviour.
             }
             '';
         }
-        # Register the handler in the list of handlers
-        # Note the use of the "default" attribute:
-        $self->{_ep_funcs}->{'ep-file'} = { method => '_ep_file',
-                                           default => 'contents' };
         # Return an empty string:
         '';
         </ep-perl>
 
-    The main difference to the previous example is that we install a handler
-    description in $self->{'_ep_funcs'}. This handler description is a hash
-    ref with the keys *method* (the HTML::EP method to execute, by default
-    _ep_file, so we could well omit it here) and the *default* attribute,
-    which is used as follows:
-
-    If EP finds the `<ep-file>', it calls _ep_file for the first time. The
-    method checks, whether a *contents* value is given. If so, it starts
-    working immediately. If not, it returns an undefined value. This advices
-    EP that the method is waiting for a `</ep-fileE</gt>'. Thus EP enters
-    multi-line mode, collects the following input and then calls _ep_file
-    again, this time by setting the handlers *default* attribute.
+    The main difference to the previous example is that our method is
+    prepared for being called twice: The first time with an undefined
+    *contents* attribute, in which case it returns immediately, the second
+    time with the value being read from the lines between ep-file and /ep-
+    file.
 
     Note the use of the *Symbol* package when accessing files: *Never* use
     global handles like
@@ -1189,13 +1233,13 @@ TODO
 AUTHOR AND COPYRIGHT
     This module is
 
-        Copyright (C) 1998    Jochen Wiedmann
-                              Am Eisteich 9
-                              72555 Metzingen
-                              Germany
+        Copyright (C) 1998-1999     Jochen Wiedmann
+                                    Am Eisteich 9
+                                    72555 Metzingen
+                                    Germany
 
-                              Phone: +49 7123 14887
-                              Email: joe@ispsoft.de
+                                    Phone: +49 7123 14887
+                                    Email: joe@ispsoft.de
 
     All rights reserved.
 

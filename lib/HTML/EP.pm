@@ -31,15 +31,13 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1124';
+$HTML::EP::VERSION = '0.1125';
 
 
 %HTML::EP::BUILTIN_METHODS = (
     'ep-comment' =>    { method => '_ep_comment',
 			 default => 'comment',
 		         always => 1 },
-    'ep-errhandler' => { method => '_ep_errhandler',
-			 default => 'template' },
     'ep-else' =>       { method => '_ep_elseif',
 			 default => 'result',
 			 condition => 0,
@@ -48,23 +46,9 @@ $HTML::EP::VERSION = '0.1124';
 			 default => 'result',
 			 condition => 1,
 		         always => 1 },
-    'ep-error' =>      { method => '_ep_error',
-			 default => 'msg' },
     'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
 		         always => 1 },
-    'ep-list' =>       { method => '_ep_list',
-			 default => 'template' },
-    'ep-perl' =>       { method => '_ep_perl',
-			 default => 'code' },
-    'ep-query' =>      { method => '_ep_query',
-			 default => 'statement' },
-    'ep-select' =>     { method => '_ep_select',
-                         default => 'template' },
-    'ep-set' =>        { method => '_ep_set',
-		         default => 'val' },
-    'ep-mail' =>       { method => '_ep_mail',
-			 default => 'body' }
 );
 
 
@@ -440,8 +424,9 @@ sub Run ($;$) {
 	$self->eof();
     } else {
 	if (!exists($self->{'env'})) {
-	    if ($self->{'_ep_r'}) {
-		$self->{'env'} = { $self->{_ep_r}->cgi_env() };
+	    if (my $r = $self->{'_ep_r'}) {
+		$self->{'env'} = { $r->cgi_env(),
+				   'PATH_INFO' => $r->uri() };
 	    } else {
 		$self->{'env'} = \%ENV;
 	    }
@@ -468,40 +453,13 @@ sub CgiRun ($$;$) {
         if ($ok_templates  &&  $path !~ /$ok_templates/) {
 	    die "Access to $path forbidden by ok_templates";
 	}
-	if ($self->{'debug'} = $cgi->param('debug')) {
-	    my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
-	    if ($debughosts) {
-	        if ($r) {
-		    if ((my $remoteip = $r->connection()->remote_ip())
-			!~ /$debughosts/  &&
-			(my $remotehost = $r->get_remote_host())
-			!~ /$debughosts/) {
-		        die "Debugging not permitted from $remoteip"
-			  . " ($remotehost), debug hosts = $debughosts";
-		    }
-		} else {
-		    if ((my $remoteip = $ENV{'REMOTE_ADDR'})
-			!~ /$debughosts/) {
-		        die "Debugging not permitted from $remoteip,"
-			  . " debug hosts = $debughosts";
-		    }
-		}
-	    }
-
-	    $| = 1;
-	    $self->print($cgi->header('-type' => 'text/plain'));
-	    $self->print("Entering debugging mode;",
-			 " list of input values:\n");
-	    foreach my $p ($cgi->param()) {
-	        $self->print(" $p = ", $cgi->param($p), "\n");
-	    }
-	}
+	$self->_ep_debug({}) if $cgi->param('debug');
 	$self->Run();
     };
 
     if ($@) {
         if ($@ =~ /_ep_exit, ignore/) {
-	    $output = $self->{'_ep_output'};
+	    $output = $self->ParseVars($self->{'_ep_output'});
 	} else {
 	    my $errmsg;
 	    my $errstr = $@;
@@ -560,6 +518,36 @@ sub declaration ($$) {
     $self->{_ep_output} .= "<!${decl}>";
 }
 
+sub _ep_if_eval {
+    my($self, $tag, $attr) = @_;
+    my $debug = $self->{'debug'};
+    if (exists($attr->{'eval'})) {
+	$self->print("$tag: Evaluating $attr->{'eval'}\n") if $debug;
+	return $attr->{'eval'};
+    }
+    if (exists($attr->{'neval'})) {
+	$self->print("$tag: Evaluating ! $attr->{'neval'}\n") if $debug;
+	return !$attr->{'neval'};
+    }
+    die "Missing condition" unless(exists($attr->{'cnd'}));
+    if ($attr->{'cnd'} =~ /^(.*?)(==|!=|<=?|>=?)(.*)$/) {
+	$self->print("$tag: Numeric condition $1 $2 $3\n") if $debug;
+	$1 ||= 0;
+	$3 ||= 0;
+	return ($1 == $3) if $2 eq '==';
+	return ($1 != $3) if $2 eq '!=';
+	return ($1 < $3) if $2 eq '<';
+	return ($1 > $3) if $2 eq '>';
+	return ($1 >= $3) if $2 eq '>=';
+	return ($1 <= $3);
+    }
+    die "Cannot parse condition cnd=$attr->{'cnd'}"
+	unless $attr->{'cnd'} =~ /^\s*\'(.*?)\'\s*(eq|ne)\s*\'(.*)\'\s*$/;
+    $self->print("$tag: String condition $1 $2 $3\n") if $debug;
+    return $1 eq $3 if $2 eq 'eq';
+    return $1 ne $3;
+}
+
 sub start ($$$$$) {
     my($self, $tag, $attr, $attrseq, $text) = @_;
     if ($tag =~ /^ep\-/) {
@@ -586,15 +574,11 @@ sub start ($$$$$) {
 
 	my $method = $func->{method};
 	my $state = $self->{_ep_state};
+	my $current;
 	if ($tag eq 'ep-if') {
 	    undef $text;
-	    $self->{_ep_state} = $attr->{'eval'}  &&  $state;
-	    if ($self->{debug}) {
-		$self->print("ep-if: Eval = '",
-			     (defined($attr->{'eval'}) ? $attr->{'eval'} : ''),
-			     "' changing state to ",
-			     ($self->{_ep_state} ? 1 : 0), "\n");
-	    }
+	    $current = $self->{_ep_state} =
+		($state  and  $self->_ep_if_eval($tag, $attr));
 	} else {
 	    $text = $self->$method($attr, $func);
 	}
@@ -603,7 +587,7 @@ sub start ($$$$$) {
 	    my $pop = { attr => $attr,
 			tag => $tag,
 			output => $self->{_ep_output},
-			current => ($attr->{'eval'} ? 1 : 0),
+			current => ($current ? 1 : 0),
 			result => undef,
 			state => $state
 		      };
@@ -737,11 +721,45 @@ sub _ep_package ($$;$) {
 }
 end_of__ep_package
 
+_ep_debug => <<'end_of__ep_debug',
+sub _ep_debug {
+    my $self = shift;
+    my $cgi = $self->{'cgi'};
+
+    my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
+    if ($debughosts) {
+	my $remoteip = '';
+	my $remotehost = '';
+	if (my $r = $self->{'_ep_r'}) {
+	    $remoteip = ($r->connection()->remote_ip() || '');
+	    $remotehost = ($r->get_remote_host() || '');
+	} else {
+	    $remoteip = ($ENV{'REMOTE_ADDR'} || '');
+	}
+	if (($remoteip !~ /$debughosts/)  and
+	    ($remotehost !~ /$debughosts/)) {
+	    die "Debugging not permitted from $remoteip"
+		. " ($remotehost), debug hosts = $debughosts";
+	}
+    }
+
+    $| = 1;
+    $self->print($cgi->header('-type' => 'text/plain'));
+    $self->print("Entering debugging mode;",
+		 " list of input values:\n");
+    foreach my $p ($cgi->param()) {
+	$self->print(" $p = ", $cgi->param($p), "\n");
+    }
+    $self->{'debug'} = 1;
+    '';
+}
+end_of__ep_debug
+
 _ep_perl => <<'end_of__ep_perl',
 sub _ep_perl ($$;$) {
-    my $self = shift; my $attr = shift;
+    my($self, $attr, $func) = @_;
     my($file, $code);
-    if ($file = $attr->{src}) {
+    if ($file = $attr->{'src'}) {
 	my $fh = Symbol::gensym();
 	if (! -f $file  &&  -f ($self->{env}->{DOCUMENT_ROOT} . $file)) {
 	    $file = ($self->{env}->{DOCUMENT_ROOT} . $file);
@@ -755,8 +773,8 @@ sub _ep_perl ($$;$) {
 	    die "Error while reading $file: $!";
 	}
     } else {
-	$code = $attr->{code};
-	if (!defined($code)) {
+	if (!defined($code = $attr->{'code'})) {
+	    $func->{'default'} ||= 'code';
 	    return undef;
 	}
     }
@@ -820,13 +838,14 @@ end_of__ep_database
 
 _ep_query => <<'end_of__ep_query',
 sub _ep_query ($$;$) {
-    my $self = shift; my $attr = shift;
+    my($self, $attr, $func) = @_;
     my $statement = $attr->{statement};
     my $debug = $self->{'debug'};
     my $resultmethod =
 	(exists($attr->{resulttype})  &&  $attr->{'resulttype'} =~ /array/) ?
 	    "fetchrow_arrayref" : "fetchrow_hashref";
     if (!defined($statement)) {
+	$func->{'default'} ||= 'statement';
 	return undef;
     }
     my $dbh = $self->{$attr->{dbh} || 'dbh'};
@@ -877,8 +896,9 @@ end_of__ep_query
 
 _ep_select => <<'end_of__ep_select',
 sub _ep_select ($$;$) {
-    my $self = shift; my $attr = shift;
+    my($self, $attr, $func) = @_;
     if (!exists($attr->{'template'})) {
+	$func->{'default'} ||= 'template';
 	return undef;
     }
     my @tags;
@@ -898,10 +918,13 @@ end_of__ep_select
 
 _ep_list => <<'end_of__ep_list',
 sub _ep_list ($$;$) {
-    my $self = shift; my $attr = shift;
+    my($self, $attr, $func) = @_;
     my $debug = $self->{'debug'};
     my $template;
-    return undef unless defined($template = $attr->{template});
+    if (!defined($template = $attr->{template})) {
+	$func->{'default'} ||= 'template';
+        return undef;
+    }
     my $output = '';
     my($list, $range);
     if ($range = $attr->{'range'}) {
@@ -950,14 +973,15 @@ end_of__ep_list
 
 _ep_errhandler => <<'end_of__ep_errhandler',
 sub _ep_errhandler ($$;$) {
-    my($self, $attr) = @_;
+    my($self, $attr, $func) = @_;
     my $type = $attr->{type};
     $type = ($type  &&  (lc $type) eq 'user') ? 'user' : 'system';
     if ($attr->{src}) {
 	$self->{'_ep_err_file_' . $type} = $attr->{src};
     } else {
-	my $template = $attr->{template};
+	my $template = $attr->{'template'};
 	if (!defined($template)) {
+	    $func->{'default'} ||= 'template';
 	    return undef;
 	}
 	$self->{'_ep_err_msg_' . $type} = ($attr->{template} || '');
@@ -969,9 +993,12 @@ end_of__ep_errhandler
 
 _ep_error => <<'end_of__ep_error',
 sub _ep_error ($$;$) {
-    my($self, $attr) = @_;
-    my $msg = $attr->{msg};
-    if (!defined($msg)) { return undef; }
+    my($self, $attr, $func) = @_;
+    my $msg = $attr->{'msg'};
+    if (!defined($msg)) {
+	$func->{'default'} ||= 'msg';
+	return undef;
+    }
     my $type = $attr->{type};
     $self->{_ep_err_type} = ($type  &&  (lc $type) eq 'user') ? 1 : 0;
     die $msg;
@@ -1091,14 +1118,9 @@ sub _ep_elseif ($$;$) {
 	$pop->{result} = $self->{_ep_output};
 	$pop->{current} = $self->{_ep_state} = 0;
     } elsif (!defined($pop->{result})) {
-	$pop->{current} = !$func->{condition} || ($attr->{'eval'} ? 1 : 0);
+	$pop->{current} = !$func->{condition} ||
+            ($self->_ep_if_eval('ep-elseif', $attr) ? 1 : 0);
 	$self->{_ep_state} = $pop->{current} && $pop->{state};
-	if ($self->{debug}) {
-	    $self->print($pop->{tag}, ": Eval = '",
-			 (defined($attr->{'eval'}) ? $attr->{'eval'} : ''),
-			 "' changing state to ",
-			 ($self->{_ep_state} ? 1 : 0), "\n");
-	}
     }
     $self->{_ep_output} = '';
 }
@@ -1109,13 +1131,12 @@ _ep_mail => <<'end_of__ep_mail',
 sub _ep_mail ($$;$) {
     my($self, $attr, $func) = @_;
 
-    my $body = delete $attr->{body};
-    my $host = (delete $attr->{mailserver});
-    if (!$host) {
-	$host = $self->{'_ep_config'}->{'mailhost'} || '127.0.0.1';
-    }
+    my $body = delete $attr->{'body'};
+    my $host = (delete $attr->{'mailserver'})  ||
+	$self->{'_ep_config'}->{'mailhost'} || '127.0.0.1';
     my @options;
     if (!defined($body)) {
+	$func->{'default'} = 'body';
 	return undef;
     }
     require Mail::Header;
@@ -1126,27 +1147,18 @@ sub _ep_mail ($$;$) {
 	    die "Missing header attribute: $header";
 	}
     }
-    foreach $header ('To', 'Cc', 'Bcc') {
-	my $h = lc $header;
-	if ($attr->{$h}) {
-	    my $list = [split (/,/, $attr->{$h})];
-	    push(@options, $header, $list);
-	    if ($header ne 'Bcc') {
-		foreach $val (@$list) {
-		    $msg->add($h, $val);
-		}
-	    }
-	    delete $attr->{$h};
-	}
-    }
     while (($header, $val) = each %$attr) {
 	$msg->add($header, $val);
     }
     require Net::SMTP;
     require Mail::Internet;
     my $debug = $self->{'debug'};
+    local *STDERR if $debug;
     if ($debug) {
-        $self->print("Making SMTP connection to $host.\n")
+	$self->print("Headers: \n");
+	$self->print($msg->as_string());
+        $self->print("Making SMTP connection to $host.\n");
+        open(STDERR, ">&STDOUT");
     }
     my $smtp = Net::SMTP->new($host, 'Debug' => $debug)
         or die "Cannot open SMTP connection to $host: $!";
@@ -1155,6 +1167,7 @@ sub _ep_mail ($$;$) {
                                                 # DNS lookup for 'mailhost'
                                                 # in Mail::Util::mailaddress().
     $mail->smtpsend('Host' => $smtp, @options);
+    $smtp->quit();
     '';
 }
 end_of__ep_mail
@@ -1222,8 +1235,11 @@ end_of__ep_redirect
 
 _ep_set => <<'end_of__ep_set',
 sub _ep_set ($$;$) {
-    my $self = shift; my $attr = shift;
-    return undef unless exists($attr->{'val'});
+    my($self, $attr, $func) = @_;
+    if (!exists($attr->{'val'})) {
+	$func->{'default'} ||= 'val';
+	return undef;
+    }
     my $var = $attr->{'var'};
     my $val = $attr->{'val'};
     my $ref = $self;

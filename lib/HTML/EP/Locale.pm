@@ -29,54 +29,54 @@ package HTML::EP::Locale;
 
 @HTML::EP::Locale::ISA = qw(HTML::EP);
 
-my $mod_perl = $ENV{'MOD_PERL'} ? 1 : 0;
-if ($mod_perl) {
-    $HTML::EP::BUILTIN_METHODS{'ep-language'} = {
-	method => '_ep_language',
-	default => 'string'
-	};
-}
-
 
 sub init ($) {
-    my($self) = @_;
-    if (!$self->{_ep_language}) {
-	$self->SUPER::init();
-	my $lang = $self->{cgi}->param('language');
-	if (!$lang) {
-	    if ($self->{env}->{PATH_TRANSLATED} =~ /\.(\w+)\.\w+$/) {
-		$lang = $1;
-	    } else {
-		$lang = $self->{'_ep_config'}->{'default_language'};
-	    }
-	}
-	$self->{_ep_language} = $lang;
- 	if (!$mod_perl) {
- 	    my $funcs = $self->{_ep_funcs};
- 	    $funcs->{'ep-language'} = {
- 		method => '_ep_language',
- 		default => 'string'
- 		};
-	}
-    }
+    my $self = shift;
+    return if $self->{'_ep_language'};
+    $self->SUPER::init();
+    $self->{_ep_language} = $self->{cgi}->param('language')  ||
+	(($self->{env}->{PATH_TRANSLATED} =~ /\.(\w+)\.\w+$/) ?
+	 $1 : $self->{'_ep_config'}->{'default_language'});
 }
 
 
 sub _ep_language ($$;$) {
-    my($self, $attr) = @_;
+    my($self, $attr, $func) = @_;
     my $language = $self->{'_ep_language'};
-    my $result;
+    my $debug = $self->{'debug'};
     if (my $lang = $attr->{'language'}) {
-	if (!defined($attr->{'string'})) { return undef; }
-	$result = ($lang eq $language) ? $attr->{'string'} : '';
-	if ($self->{'debug'}) {
-	    $self->print("Language = $lang, input:", $attr->{'string'},
-			 "Language = $language, output:", $result);
+	my $state = ($lang eq $language);
+	if (!defined($attr->{'string'})) {
+	    my $stack = $self->{_ep_stack};
+	    if (@$stack) {
+		my $pop = $stack->[$#$stack];
+		if ($pop->{'tag'} eq 'ep-language') {
+		    $self->{'_ep_language_output'} .= $self->{'_ep_output'}
+			if $self->{'_ep_state'};
+		    $self->{'_ep_state'} = $state;
+		    $self->print("ep-else-language: state = $state\n")
+			if $debug;
+		    $pop->{'attr'}->{'language'} = $lang;
+		    return ($self->{'_ep_output'} = '');
+		}
+	    }
+	    $self->{'_ep_state'} = $state;
+	    $self->{'_ep_language_output'} = '';
+	    $func->{'default'} ||= 'string';
+	    $func->{'always'} ||= 1;
+	    $self->print("ep-language: state = $state\n")
+		if $debug;
+	    return undef;
 	}
+	$self->printf("/ep-language: output = %s\n",
+		      $self->{'_ep_language_output'} .
+		      ($state ? $attr->{'string'} : ''))
+	    if $debug;
+	$self->{'_ep_language_output'} .
+	    ($state ? $attr->{'string'} : '');
     } else {
-	$result = exists($attr->{$language}) ? $attr->{$language} : '';
+	exists($attr->{$language}) ? $attr->{$language} : '';
     }
-    $result;
 }
 
 
@@ -89,5 +89,44 @@ sub _format_DM {
     $str;
 }
 
+
+$HTML::EP::Locale::AUTOLOADED_ROUTINES = <<'AUTOLOADED_ROUTINES';
+
+(
+
+'_format_TIME' => <<'_end_of_format_TIME',
+sub _format_TIME {
+    my $self = shift;  my $date = shift;
+    if ($self->{'_ep_language'} eq 'de') {
+	              # Sun, 7 Feb 1999 18:17:57 +0100
+	if ($date =~ m{(\S+),\s+
+                            (\d+)\s+
+                               (\S+)\s+
+                                   (\d+)\s+
+                                        (\d+\:\d+\:\d+)\s+
+                                                 (\+\d+)}x) {
+	    my %wdays = ('sun' => 0, 'mon' => 1, 'tue' => 2,
+			 'wed' => 3, 'thu' => 4, 'fri' => 5,
+			 'sat' => 6);
+	    my $wday = (('Sonntag', 'Montag', 'Dienstag', 'Mittwoch',
+			 'Donnerstag', 'Freitag', 'Samstag')[$wdays{lc $1}]);
+	    my %months = ('jan' => 0, 'feb' => 1, 'mar' => 2,
+			  'apr' => 3, 'may' => 4, 'jun' => 5,
+			  'jul' => 6, 'aug' => 7, 'sep' => 8,
+			  'oct' => 9, 'nov' => 10, 'dec' => 12
+			 );
+	    my $mon = (('Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+			'Juli', 'August', 'September', 'Oktober', 'November',
+			'Dezember')[$months{lc $3}]);
+	    $date = "$wday, den $2. $mon $4, $5 Uhr ($6)";
+	}
+    }
+    $date;
+}
+_end_of_format_TIME
+
+)
+
+AUTOLOADED_ROUTINES
 
 1;

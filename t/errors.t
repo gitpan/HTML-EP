@@ -3,14 +3,18 @@
 use strict;
 
 
-require HTML::EP;
-require HTML::EP::Config;
+use HTML::EP ();
+use HTML::EP::Config ();
+use Getopt::Long ();
 
-if (($HTML::EP::Config::CONFIGURATION->{'ok_templates'} =  # -w
-     $HTML::EP::Config::CONFIGURATION->{'ok_templates'})  ne '\.ep$') {
-    print "1..0\n";
-    exit 0;
-}
+use vars qw($opt_debug);
+Getopt::Long::GetOptions('debug');
+
+
+$HTML::EP::Config::CONFIGURATION->{'ok_templates'} = '.ep';
+$HTML::EP::Config::CONFIGURATION->{'debug_hosts'} = '127.0.0.1';
+
+
 print "1..3\n";
 
 
@@ -72,8 +76,10 @@ sub Test3($$;@) {
 
 
 
-$ENV{REQUEST_METHOD} = 'GET';
-$ENV{QUERY_STRING} = '';
+$ENV{'REQUEST_METHOD'} = 'GET';
+$ENV{'QUERY_STRING'} = $opt_debug ? 'debug=1' : '';
+$ENV{'REMOTE_ADDR'} = '127.0.0.1';
+
 
 my $parser = HTML::EP->new();
 Test($parser, "Creating the parser.\n");

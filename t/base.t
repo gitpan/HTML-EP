@@ -45,7 +45,9 @@ if (!HaveModule("HTML::EP::Examples::Glimpse")) {
 } else {
     print "ok 8\n";
 }
-if (!HaveModule("HTML::EP::Examples::POP3Client")) {
+if (!HaveModule("Mail::POP3Client")) {
+    print "ok 9 # Skip\n";
+} elsif (!HaveModule("HTML::EP::Examples::POP3Client")) {
     print "$@\nnot ok 9\n";
 } else {
     print "ok 9\n";

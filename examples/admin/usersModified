@@ -263,6 +263,7 @@ This can be fatal for the email system, please take immediate action!
 END_OF_MESSAGE
         exit(1);
     }
+    chmod 0644, $PATH_ALIASES;
 
     Command($PATH_NEWALIASES);
 }

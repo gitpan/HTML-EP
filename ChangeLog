@@ -1,3 +1,19 @@
+1999-02-07  Jochen Wiedmann  <joe@ispsoft.de> (0.1125)
+
+	* lib/HTML/EP.pm (ep_if): Added neval and cnd attributes.
+	* Further work on POP3 client.
+	* Work on the docs.
+	* Made BUILTIN_FUNCS a lot smaller by creating the 'default'
+	  attribute of $func dynamically.
+	* lib/HTML/EP/Locale.pm (_ep_language): The multiline version
+	  of _ep_language should now hopefully be equivalent to
+	  <ep-if cnd="'$_ep_language'eq'lang'> ... </ep-if>. It is
+	  no longer required to terminate any ep-language, only the
+	  last one must be terminated.
+	* lib/HTML/EP.pm (CgiRun): Fixed bug: ParseVars was not
+	  called with _ep_exit.
+	* lib/HTML/EP.pm: Added ep-debug.
+
 1999-02-01  Jochen Wiedmann  <joe@ispsoft.de> (0.1124)
 
 	* Added partial POP3 client example.

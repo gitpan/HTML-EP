@@ -13,9 +13,11 @@ lib/HTML/EP/Session/Cookie.pm	Cookie sessions
 lib/HTML/EP/Shop.pm		E-Commerce support
 lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration
 lib/HTML/EP/Examples/Glimpse.pm Library for a simple search engine
+lib/HTML/EP/Examples/POP3Client.pm Library for a simple POP3 client
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
 t/errors.t			Error handling test
+t/locale.t			HTML::EP::Locale tests
 t/misc.t			Miscellaneous commands
 t/session.t			Session test
 t/shop.t			Shopping cart test
@@ -39,6 +41,12 @@ examples/glimpse/glimpseindex.ep Search engine (Building the index)
 examples/glimpse/index.ep	Search engine (Creating the query)
 examples/glimpse/prefs.ep	Search engine (Setting the Prefs)
 examples/glimpse/search.ep	Search engine (Displaying the results)
+examples/pop3/delete.ep		POP3 Client (Deleting a mail)
+examples/pop3/index.ep		POP3 Client (Welcome page)
+examples/pop3/list.ep		POP3 Client (Mailbox list)
+examples/pop3/reply.ep		POP3 Client (Replying a mail)
+examples/pop3/send.ep		POP3 Client (Sending a mail)
+examples/pop3/show.ep		POP3 Client (Mail display)
 examples/shop/README		Shopping cart (Docs)
 examples/shop/admin/index.ep	Shopping cart (Main administration page)
 examples/shop/admin/download.ep	Shopping cart (Download page)
