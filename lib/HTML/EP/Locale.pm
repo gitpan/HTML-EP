@@ -52,13 +52,19 @@ sub init ($) {
 
 sub _ep_language ($$;$) {
     my($self, $attr) = @_;
-    if (exists($attr->{language})) {
-	if (!defined($attr->{string})) { return undef; }
-	($attr->{language} eq $self->{_ep_language}) ? $attr->{string} : '';
+    my $language = $self->{'_ep_language'} || 'de';
+    my $result;
+    if (my $lang = $attr->{'language'}) {
+	if (!defined($attr->{'string'})) { return undef; }
+	$result = ($lang eq $language) ? $attr->{'string'} : '';
+	if ($self->{'debug'}) {
+	    $self->print("Language = $lang, input:", $attr->{'string'},
+			 "Language = $language, output:", $result);
+	}
     } else {
-	exists($attr->{$self->{_ep_language}}) ?
-	    $attr->{$self->{_ep_language}} : '';
+	$result = exists($attr->{$language}) ? $attr->{$language} : '';
     }
+    $result;
 }
 
 

@@ -63,6 +63,7 @@ END_OF_HTML
     }
 
     $template =~ s/\$(\w+)\$/$vars->{$1}/eg;
+    $r->send_http_header();
     $r->print($template);
 }                                                                             
 
@@ -75,7 +76,7 @@ sub handler ($$) {
 	$r = Apache->request;
     }
     my $filename = $r->filename;
-    my $oldwarn = $^W;
+    local $^W;
 
     if (($r->allow_options() & Apache::Constants::OPT_EXECCGI())  ==  0) {
 	$r->log_reason("Options ExecCGI is off in this directory",
@@ -95,8 +96,9 @@ sub handler ($$) {
     $r->cgi_env('PATH_TRANSLATED' => $filename);
     my $self = HTML::EP->new();
     $self->{_ep_r} = $r;
-    if ($self->{debug}) {
-	$self->{cgi}->param('debug');
+    if ($self->{cgi}->param('debug')) {
+	$self->{'debug'} = 1;
+	$r->content_type('text/plain');
 	$r->status(Apache::Constants::OK());
 	$r->send_http_header();
     } else {
@@ -104,7 +106,7 @@ sub handler ($$) {
 	$r->status(Apache::Constants::OK());
     }
     $r->no_cache(1);
-    if ($self->{cgi}->param('debug')) {
+    if ($self->{'debug'}) {
 	$r->print("Entering debugging mode; list of input values:\n");
 	my $p;
 	foreach $p ($self->{cgi}->param()) {
@@ -114,34 +116,37 @@ sub handler ($$) {
     }
     local $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
     my $output = eval { $self->Run(); };
-    if ($@  &&  $@ !~ /_ep_exit, ignore/) {
-	my $errstr = $@;
-	my $errfile = $self->{_ep_err_type} ?
-	    $self->{_ep_err_file_system} : $self->{_ep_err_file_user};
-	my $errmsg;
-	if ($errfile) {
-	    eval {
-		my $fh = Symbol::gensym();
-		if (open($fh, "<$errfile")) {
-		    local($/) = undef;
-		    $errmsg = <$fh>;
-		    close($fh);
-		}
-	    };
-	}
-	if (!$errmsg) {
-	    $errmsg = $self->{_ep_err_type} ?
-		$self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
-	}
-	SimpleError($r, $errmsg, $errstr);                     
-    } else {
-	if (!$self->{_ep_stop}) {
-	    $r->send_http_header();
-	    $r->print($output);
+    if ($@) {
+	if ($@ =~ /_ep_exit, ignore/) {
+	    $output = $self->{'_ep_output'};
+	} else {
+	    my $errstr = $@;
+	    my $errfile = $self->{_ep_err_type} ?
+		$self->{_ep_err_file_system} : $self->{_ep_err_file_user};
+	    my $errmsg;
+	    if ($errfile) {
+		eval {
+		    my $fh = Symbol::gensym();
+		    if (open($fh, "<$errfile")) {
+			local($/) = undef;
+			$errmsg = <$fh>;
+			close($fh);
+		    }
+		};
+	    }
+	    if (!$errmsg) {
+		$errmsg = $self->{_ep_err_type} ?
+		    $self->{_ep_err_msg_user} : $self->{_ep_err_msg_system};
+	    }
+	    SimpleError($r, $errmsg, $errstr);                     
+	    return $r->status;
 	}
     }
+    if (!$self->{_ep_stop}) {
+	$r->send_http_header();
+	$r->print($output);
+    }
 
-    $^W = $oldwarn;
     return $r->status;
 }
 

@@ -22,8 +22,18 @@
 require 5.004;
 use strict;
 
-use ExtUtils::MakeMaker qw(prompt WriteMakefile);
+use ExtUtils::MakeMaker qw(WriteMakefile);
 
+sub prompt {
+    my($msg, $def) = @_;
+    my $dispdef = defined $def ? "[$def] " : " ";
+    $def = defined $def ? $def : "";
+    print "$msg $dispdef";
+    my $ans = <STDIN>;
+    $ans =~ s/^\s+//;
+    $ans =~ s/\s+$//;
+    ($ans ne '') ? $ans : $def;
+}
 
 my %prereq;
 sub CheckModule ($;$$) {

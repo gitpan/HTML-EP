@@ -124,8 +124,12 @@ sub new {
 	$ep->printf("Inserting id %s, session %s\n",
 		    $id, unpack("H*", $code . $freezed_session));
     }
-    $dbh->do("INSERT INTO $table (ID, SESSION, LOCKED) VALUES (?, ?, 1)",
-	     undef, $id, $code . $freezed_session);
+    my $sth = $dbh->prepare("INSERT INTO $table (ID, SESSION, LOCKED)"
+			    . " VALUES (?, ?, 1)");
+    $sth->bind_param(1, $id, DBI::SQL_CHAR());
+    $sth->bind_param(2, $code . $freezed_session, DBI::SQL_LONGVARBINARY());
+    $sth->execute();
+    $sth->finish();
     $session->{'_ep_data'} = { 'dbh' => $dbh,
 			       'table' => $table,
 			       'locked' => 1,
@@ -179,13 +183,16 @@ sub store {
     if ($code eq 'h') {
 	$freezed_session = unpack("H*", $freezed_session);
     }
+    my $sth = $dbh->prepare("UPDATE $table SET SESSION = ?"
+			    . ($locked ? "" : ", LOCKED = 0")
+			    . " WHERE ID = ?");
+    $sth->bind_param(1, $code . $freezed_session, DBI::SQL_LONGVARBINARY());
+    $sth->bind_param(2, $id, DBI::SQL_CHAR());
+    $sth->execute();
+    $sth->finish();
     if ($locked) {
-	$dbh->do("UPDATE $table SET SESSION = ? WHERE ID = ?",
-		 undef, $code . $freezed_session, $id);
 	$self->{'_ep_data'} = $data;
     } else {
-	$dbh->do("UPDATE $table SET LOCKED = 0, SESSION = ? WHERE ID = ?",
-		 undef, $code . $freezed_session, $id);
 	$data->{'locked'} = 0;
     }
 }

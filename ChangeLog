@@ -1,3 +1,9 @@
+1998-09-17  Jochen Wiedmann  <joe@ispsoft.de>
+
+	* lib/HTML/EP/Locale.pm (_ep_language): Added debugging.
+	* lib/HTML/EP/Session.pm (store): Now using bind_param() for
+	  parameter binding of blob's.
+
 1998-09-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1107)
 
 	* EP.pm.in (_ep_select): Added handling of Non-EP attributes like
