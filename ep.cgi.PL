@@ -89,6 +89,16 @@ eval {
 if ($@) {
     SimpleError(undef, $@);
 }
+if ($self->{cgi}->param('debug')) {
+    $| = 1;
+    print "content-type: text/plain\n\n";
+    print "Entering debugging mode; list of input values:\n";
+    my $p;
+    foreach $p ($self->{cgi}->param()) {
+        print " $p = ", $self->{cgi}->param($p), "\n";
+    }
+    $self->{debug} = 1;
+}
 my($output) = eval { $self->Run(); };
 if ($@) {
     my $errmsg;
@@ -112,7 +122,10 @@ if ($@) {
     SimpleError($errmsg, $@);
 }
 
-print $self->{cgi}->header(), $output;
+if (!$self->{_ep_stop}) {
+    print $self->{cgi}->header(), $output;
+}
+
 exit 0;
 END_OF_SCRIPT
 

@@ -1,3 +1,22 @@
+1998-07-04  Jochen Wiedmann  <joe@ispsoft.de> (0.1005)
+
+	* Added HTML::EP::Locale.
+	* Added list attribute to ep-input.
+	* Added init method.
+	* EP.pm.in (_ep_list): Added $self->{i}.
+	* Added $self->Stop()
+	* Added ep-select
+
+1998-07-04  Jochen Wiedmann  <joe@ispsoft.de> (0.1003)
+
+	* EP.pm.in (_ep_perl): Forgot to set $_ before evaluating in
+	  package mode.
+	* EP.pm.in: src attribute of ep-perl now adds DOCUMENT_ROOT,
+	  if required.
+	* Added Apache::EP for mod_perl support. 
+	* EP.pm.in: Fixed {eval}, {package} and {comment} to
+	  {'eval'}, {'package} and {'comment}
+
 1998-06-26  Jochen Wiedmann  <joe@ispsoft.de> (0.1002)
 
 	* lib/HTML/EP.pod: Added isa attribute to ep-package.

@@ -3,20 +3,22 @@
 use strict;
 
 
-print "1..31\n";
+print "1..40\n";
 
 require HTML::EP;
 
-{
-    my $numTests = 0;
-    sub Test($;@) {
-	my $result = shift;
-	if (@_ > 0) { printf(@_); }
-	++$numTests;
-	if (!$result) { print "not " };
-	print "ok $numTests\n";
-	$result;
-    }
+my $have_dbd_csv = eval { require DBD::CSV };
+my $have_dbi = eval { require DBI };
+
+
+my $numTests = 0;
+sub Test($;@) {
+    my $result = shift;
+    if (@_ > 0) { printf(@_); }
+    ++$numTests;
+    if (!$result) { print "not " };
+    print "ok $numTests\n";
+    $result;
 }
 
 sub Test2($$;@) {
@@ -60,6 +62,11 @@ Test2($parser->Run($input), $output, "Single-line comment.\n");
 
 
 $parser = HTML::EP->new();
+$input = '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">';
+Test2($parser->Run($input), $input, "DOCTYPE\n");
+
+
+$parser = HTML::EP->new();
 $input = '<HTML><ep-perl code="3+4"></HTML>';
 $output = '<HTML>7</HTML>';
 Test2($parser->Run($input), $output, "Single-line Perl expression.\n");
@@ -79,17 +86,43 @@ _END_OF_HTML
 Test2($parser->Run($input), $output, "Multi-line Perl expression.\n");
 
 
+$input = '<ep-package name="HTML::EP::Locale" require=1>'
+    . '<ep-language de="Deutsch" en="English">';
 $parser = HTML::EP->new();
-$input = <<'_END_OF_HTML';
+$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
+Test2($parser->Run($input), "Deutsch", "Single-line Localization.\n");
+$parser = HTML::EP->new();
+$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
+Test2($parser->Run($input), "English", "Single-line Localization.\n");
+$parser = HTML::EP->new();
+$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
+Test2($parser->Run($input), "", "Single-line Localization.\n");
+$input = '<ep-package name="HTML::EP::Locale" require=1>'
+    . '<ep-language language=de>Deutsch</ep-language>'
+    . '<ep-language language=en>English</ep-language>';
+$parser = HTML::EP->new();
+$parser->{env}->{PATH_TRANSLATED} = "test.de.html";
+Test2($parser->Run($input), "Deutsch", "Multi-line Localization.\n");
+$parser = HTML::EP->new();
+$parser->{env}->{PATH_TRANSLATED} = "test.en.html";
+Test2($parser->Run($input), "English", "Multi-line Localization.\n");
+$parser = HTML::EP->new();
+$parser->{env}->{PATH_TRANSLATED} = "test.no.html";
+Test2($parser->Run($input), "", "Multi-line Localization.\n");
+
+
+if (!$have_dbi  ||  !$have_dbd_csv) {
+    ++$numTests;
+    print "ok $numTests # Skip\n";
+} else {
+    $parser = HTML::EP->new();
+    $input = <<'_END_OF_HTML';
 <HTML><ep-database dsn="DBI:CSV:"></HTML>
 _END_OF_HTML
-$output = <<'_END_OF_HTML';
+    $output = <<'_END_OF_HTML';
 <HTML></HTML>
 _END_OF_HTML
-my $got = eval { $parser->Run($input); };
-if ($@ =~ /Can't locate file 'DBI.pm'/  ||  $@ =~ /DBI\:\:install_driver/) {
-    Test(1);
-} else {
+    my $got = eval { $parser->Run($input); };
     Test2($got, $output, "Making a Database connection.\n");
 }
 my $dbh = $parser->{dbh};
@@ -127,15 +160,27 @@ $output = <<'_END_OF_HTML';
 </TABLE>
 </HTML>
 _END_OF_HTML
-if (!$dbh) {
-    Test(1);
+if (!$have_dbi  ||  !$have_dbd_csv  ||  !$dbh) {
+    ++$numTests;
+    print "ok $numTests # Skip\n";
 } else {
     Test2($parser->Run($input), $output, "SQL queries.\n");
 }
 
 
+$parser = HTML::EP->new();
+$input = '<ep-select range="1..5" name="foo" selected=3 item=y>'
+    . '<OPTION $selected$>$y$</ep-select>';
+$output= '<SELECT NAME="foo"><OPTION >1<OPTION >2<OPTION SELECTED>3<OPTION >4'
+    . '<OPTION >5</SELECT>';
+Test2($parser->Run($input), $output, "Select lists.\n");
+
+
 $ENV{QUERY_STRING} = 'address_t_name=joe&address_t_street=Am+Eisteich+9'
-    . '&address_n_zip=72555&address_t_city=Metzingen';
+    . '&address_n_zip=72555&address_t_city=Metzingen'
+    . '&address_dy_date1=1998&address_dm_date1=7&address_dd_date1=2'
+    . '&address_dy_date2=98&address_dm_date2=7&address_dd_date2=2'
+    . '&address_dy_date3=8&address_dm_date3=7&address_dd_date3=2';
 $input = <<'_END_OF_HTML';
 <ep-input prefix="address_" dest=address>
 <HTML>
@@ -143,6 +188,9 @@ $input = <<'_END_OF_HTML';
 <P>Street = $address->street->val$</P>
 <P>Zip = $address->zip->val$</P>
 <P>City = $address->city->val$</P>
+<P>Date1 = $address->date1->val$</P>
+<P>Date2 = $address->date2->val$</P>
+<P>Date3 = $address->date3->val$</P>
 </HTML>
 _END_OF_HTML
 $output = <<'_END_OF_HTML';
@@ -152,10 +200,34 @@ $output = <<'_END_OF_HTML';
 <P>Street = Am Eisteich 9</P>
 <P>Zip = 72555</P>
 <P>City = Metzingen</P>
+<P>Date1 = 1998-07-02</P>
+<P>Date2 = 1998-07-02</P>
+<P>Date3 = 2008-07-02</P>
 </HTML>
 _END_OF_HTML
 $parser = HTML::EP->new();
 Test2($parser->Run($input), $output, "Object input.\n");
+
+$ENV{QUERY_STRING} = 'art_0_t_name=Book&art_0_n_price=5.00'
+    . '&art_1_t_name=Donut&art_1_n_price=1.00';
+$input = <<'_END_OF_HTML';
+<ep-input prefix="art_" dest=art list=1>
+<ep-list items=art item=a>
+  Name = $a->name->val$, Price = $a->price->val$, Item = $a->i$
+</ep-list>
+_END_OF_HTML
+$output = <<'_END_OF_HTML';
+
+
+  Name = Book, Price = 5.00, Item = 0
+
+  Name = Donut, Price = 1.00, Item = 1
+
+_END_OF_HTML
+undef @CGI::QUERY_PARAM; # Arrgh! CGI caches :-(
+$parser = HTML::EP->new();
+Test2($parser->Run($input), $output, "Object list input.\n");
+
 
 $input = <<'_END_OF_HTML';
 <HTML>
@@ -287,7 +359,6 @@ _END_OF_HTML
     $ENV{QUERY_STRING} = 'email=' . URI::Escape::uri_escape($cfg->{email}) .
         '&mailhost=' . URI::Escape::uri_escape($cfg->{mailhost});
     undef @CGI::QUERY_PARAM; # Arrgh! CGI caches :-(
-    undef @CGI::QUERY_PARAM; # Make -w happy ... :-)
     $parser = HTML::EP->new();
     Test2($parser->Run($input), $output);
 }

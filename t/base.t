@@ -1,6 +1,9 @@
 # -*- perl -*-
 
-print "1..1\n";
+print "1..2\n";
 
-require HTML::EP;
-print "ok 1\n";
+$@ = ''; eval { require HTML::EP; };
+if ($@) { print "not "; } print "ok 1\n";
+
+$@ = ''; eval { require Apache::EP; };
+if ($@) { print "not "; } print "ok 2\n";

@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1002';
+$HTML::EP::VERSION = '0.1005';
 @HTML::EP::ISA = qw(HTML::Parser);
 
 
@@ -50,6 +50,9 @@ $HTML::EP::VERSION = '0.1002';
 			 default => 'statement' },
     'ep-list' =>       { method => '_ep_list',
 			 default => 'template' },
+    'ep-select' =>     { method => '_ep_list',
+                         default => 'template',
+			 format => '<SELECT NAME="$name$">$@output$</SELECT>' },
     'ep-input' =>      { method => '_ep_input' },
     'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
@@ -79,6 +82,19 @@ sub new ($) {
     }
     bless($self, (ref($proto) || $proto));
     $self;
+}
+
+sub print ($;@) {
+    my $self = shift;
+    if ($self->{_ep_r}) {
+	$self->{_ep_r}->print(@_);
+    } else {
+	print @_;
+    }
+}
+sub printf($$;@) {
+    my($self, $format, @args) = @_;
+    $self->print(sprintf($format, @args));
 }
 
 sub ParseVar ($$$$) {
@@ -123,7 +139,12 @@ sub Run ($;$) {
 	$self->parse($template);
 	$self->eof();
     } else {
-	my $file = $ENV{PATH_TRANSLATED};
+	if ($self->{_ep_r}) {
+	    $self->{env} = { $self->{_ep_r}->cgi_env() };
+	} else {
+	    $self->{env} = \%ENV;
+	}
+	my $file = $self->{env}->{PATH_TRANSLATED};
 	if (!defined($file)) {
 	    die "Missing server environment. (No PATH_TRANSLATED variable)";
 	}
@@ -138,14 +159,17 @@ sub Run ($;$) {
 }
 
 
-sub declaration ($$) {
-    my($self, $decl) = @_;
-    $self->{_ep_output} .= $decl;
+sub text ($$) {
+    my($self, $text) = @_;
+    $self->{_ep_output} .= $text;
 }
-*text = \&declaration;
 sub comment ($$) {
     my($self, $msg) = @_;
     $self->{_ep_output} .= "<!--${msg}-->";
+}
+sub declaration ($$) {
+    my($self, $decl) = @_;
+    $self->{_ep_output} .= "<!${decl}>";
 }
 
 sub start ($$$$$) {
@@ -190,12 +214,12 @@ sub start ($$$$$) {
 	my $state = $self->{_ep_state};
 	if ($tag eq 'ep-if') {
 	    undef $text;
-	    $self->{_ep_state} = $attr->{eval}  &&  $state;
+	    $self->{_ep_state} = $attr->{'eval'}  &&  $state;
 	    if ($self->{debug}) {
-		print("ep-if: Eval = '",
-		      (defined($attr->{eval}) ? $attr->{eval} : ''),
-		      "' changing state to ",
-		      ($self->{_ep_state} ? 1 : 0), "\n");
+		$self->print("ep-if: Eval = '",
+			     (defined($attr->{'eval'}) ? $attr->{'eval'} : ''),
+			     "' changing state to ",
+			     ($self->{_ep_state} ? 1 : 0), "\n");
 	    }
 	} else {
 	    $text = $self->$method($attr, $func);
@@ -205,7 +229,7 @@ sub start ($$$$$) {
 	    my $pop = { attr => $attr,
 			tag => $tag,
 			output => $self->{_ep_output},
-			current => ($attr->{eval} ? 1 : 0),
+			current => ($attr->{'eval'} ? 1 : 0),
 			result => undef,
 			state => $state
 		      };
@@ -253,21 +277,42 @@ sub end ($$$) {
     }
 }
 
+sub init ($) { 1 }
+
+sub Stop ($) { my($self) = @_; $self->{_ep_stop} = 1; }
+
 
 use vars qw($AUTOLOAD $AUTOLOADED_ROUTINES %AUTOLOADED_SUBS);
 sub AUTOLOAD {
-    my $func = $AUTOLOAD;
-    $func =~ s/.*\:\://;
-    if (!%AUTOLOADED_SUBS) {
-	if ($AUTOLOADED_ROUTINES) {
-	    %AUTOLOADED_SUBS = eval $AUTOLOADED_ROUTINES;
-	} else {
-	    die "No autoloadable methods defined.";
-	}
+    my($class, $func);
+    if ($AUTOLOAD =~ /(.*)\:\:(.*)/) {
+	$class = $1;
+	$func = $2;
+    } else {
+	return undef;
     }
-    if (exists($AUTOLOADED_SUBS{$func})) {
-	eval $AUTOLOADED_SUBS{$func}; if ($@) { die $@; }
-	goto &$func;
+    no strict 'refs';
+    my(@isa) = ($class, @{"${class}::ISA"});
+    while ($class = shift @isa) {
+	my $subs = "${class}::AUTOLOADED_SUBS";
+	if (!%$subs) {
+	    my $subs_str = "${class}::AUTOLOADED_ROUTINES";
+	    if ($$subs_str) {
+		$@ = '';
+		%$subs = eval $$subs_str;
+		if ($@) {
+		    die $@;
+		}
+	    }
+	}
+	if (exists($$subs{$func})) {
+	    $@ = '';
+	    eval "package $class; " . $$subs{$func};
+	    if ($@) {
+		die $@;
+	    }
+            goto &{"${class}::$func"};
+        }
     }
     die "Method $func is not available.";
 }
@@ -286,7 +331,7 @@ $AUTOLOADED_ROUTINES = <<'END_OF_AUTOLOADED_ROUTINES';
 _ep_comment => <<'end_of__ep_comment',
 sub _ep_comment ($$;$) {
     my($self, $attr) = @_;
-    if (!defined($attr->{comment})) {
+    if (!defined($attr->{'comment'})) {
 	$self->{_ep_state} = 0;
 	return undef;
     }
@@ -302,12 +347,13 @@ sub _ep_perl ($$;$) {
     my $code;
     if ($attr->{name}) {
 	bless($self, $attr->{name});
-	my $isa = $attr->{isa} || 'HTML::EP';
-	no strict 'refs';
-	@{$attr->{name} . "::ISA"} = split(/ /, $isa);
+	$attr->{'package'} = $attr->{name};
     }
     if ($file) {
 	my $fh = Symbol::gensym();
+	if (! -f $file  &&  -f ($self->{env}->{DOCUMENT_ROOT} . $file)) {
+	    $file = ($self->{env}->{DOCUMENT_ROOT} . $file);
+	}
 	if (!open($fh, "<$file")) {
 	    die "Cannot open $file: $!";
 	}
@@ -316,6 +362,8 @@ sub _ep_perl ($$;$) {
 	if (!defined($fh)  ||  !close($fh)) {
 	    die "Error while reading $file: $!";
 	}
+    } elsif ($attr->{require}) {
+	$code = sprintf("require %s; ''", $attr->{package});
     } else {
 	$code = $attr->{code};
 	if (!defined($code)) {
@@ -323,19 +371,32 @@ sub _ep_perl ($$;$) {
 	}
     }
     my $output;
-    if (!exists($attr->{package})) {
+    if (!exists($attr->{'package'})) {
 	my $compartment = $self->{_ep_compartment};
 	if (!$compartment) {
 	    require Safe;
 	    $compartment = $self->{_ep_compartment} = Safe->new();
 	}
+	if ($self->{debug}) {
+	    $self->print("Evaluating script in Safe compartment:\n$code\n");
+	}
 	$@ = '';
 	$_ = $self;
 	$output = $compartment->reval($code);
     } else {
-	$output = eval "package " . $attr->{package} . "; " . $code;
+	$code = sprintf("package %s;\n%s", $attr->{'package'}, $code);
+	if ($self->{debug}) {
+	    $self->HTML::EP::print("Evaluating script in package "
+				   . $attr->{'package'} . ":\n$code\n");
+	}
+	$@ = '';
+	$_ = $self;
+	$output = eval $code;
     }
     if ($@) { die $@ };
+    if ($self->{debug}) {
+	$self->printf("Script returned:\n$output\nEnd of output.\n");
+    }
     if ($attr->{output}) {
 	my $type = lc $attr->{output};
 	if ($type eq 'html') {
@@ -343,6 +404,9 @@ sub _ep_perl ($$;$) {
 	} elsif ($type eq 'url') {
 	    $output = URI::Escape::uri_escape($output);
 	}
+    }
+    if ($attr->{name}) {
+	$self->init();
     }
     $output;
 }
@@ -352,14 +416,14 @@ end_of__ep_perl
 _ep_database => <<'end_of__ep_database',
 sub _ep_database ($$;$) {
     my($self, $attr) = @_;
-    my $dsn = $attr->{dsn} || $ENV{DBI_DSN};
-    my $user = $attr->{user} || $ENV{DBI_USER};
-    my $pass = $attr->{password} || $ENV{DBI_PASS};
+    my $dsn = $attr->{dsn} || $self->{env}->{DBI_DSN};
+    my $user = $attr->{user} || $self->{env}->{DBI_USER};
+    my $pass = $attr->{password} || $self->{env}->{DBI_PASS};
     my $dbhvar = $attr->{dbh} || 'dbh';
     require DBI;
     if ($self->{debug}) {
-	printf("Connecting to database: dsn = %s, user = %s, pass = %s\n",
-	       $dsn, $user, $pass);
+	$self->printf("Connecting to database: dsn = %s, user = %s,"
+		      . " pass = %s\n", $dsn, $user, $pass);
     }
     $self->{$dbhvar} = DBI->connect($dsn, $user, $pass, { RaiseError => 1 });
     '';
@@ -377,7 +441,7 @@ sub _ep_query ($$;$) {
     my $dbh = $self->{$attr->{dbh} || 'dbh'};
     if (!$dbh) { die "Not connected"; }
     if ($self->{debug}) {
-	print "Executing query, statement = $statement\n";
+	$self->print("Executing query, statement = $statement\n");
     }
     my $result = $attr->{result};
     if ($result) {
@@ -397,7 +461,7 @@ sub _ep_query ($$;$) {
 	$self->{$result} = $list;
 	$self->{"${result}_rows"} = @$list;
 	if ($self->{debug}) {
-	    print "Result: ", scalar(@$list), " rows.\n";
+	    $self->print("Result: ", scalar(@$list), " rows.\n");
 	}
     } else {
 	$dbh->do($statement);
@@ -409,20 +473,44 @@ end_of__ep_query
 
 _ep_list => <<'end_of__ep_list',
 sub _ep_list ($$;$) {
-    my($self, $attr) = @_;
+    my($self, $attr, $func) = @_;
     my $template;
     if (!defined($template = $attr->{template})) {
 	return undef;
     }
     my $output = '';
-    my $list = $self->{$attr->{items}};
+    my($list, $range);
+    if ($range = $attr->{'range'}) {
+	if ($range =~ /(\d+)\.\.(\d+)/) {
+	    $list = [$1 .. $2];
+	} else {
+	    $list = [split(/,/, $range)];
+	}
+    } else {
+	$list = $self->{$attr->{items}};
+    }
     my $l = $attr->{item} or die "Missing item name";
     my $ref;
+    my $i = 0;
+    my $selected = $attr->{'selected'};
     foreach $ref (@$list) {
 	$self->{$l} = $ref;
+	$self->{i} = $i++;
+	if ($selected) {
+	    $self->{'selected'} =
+		((ref($ref) ? $ref->{'val'} : $ref) eq $selected) ?
+		($attr->{'selected-text'} || 'SELECTED') : '';
+	}
 	$output .= $self->ParseVars($template);
     }
-    $output;
+    my $format = ($attr->{'format'} || $func->{'format'});
+    if ($format) {
+	$attr->{'output'} = $output;
+	$format =~ s/\$([\@\#\~]?)(\w+)((\-\>\w+)*)\$/HTML::EP::ParseVar($attr, $1, $2, $3)/eg;
+	$format;
+    } else {
+	$output;
+    }
 }
 end_of__ep_list
 
@@ -462,20 +550,63 @@ end_of__ep_error
 _ep_input => <<'end_of__ep_input',
 sub _ep_input ($$;$) {
     my($self, $attr) = @_;
-    my $hash = {};
     my $prefix = $attr->{prefix};
     my $var;
-    foreach $var ($self->{cgi}->param()) {
-	if ($var =~ /^\Q$prefix\E(\w+?)_(.*)$/) {
-	    my $col = $2;
-	    my $type = $1;
-	    $hash->{$col} = { col => $col,
-			      type => $type,
-			      val => $self->{cgi}->param($var)
-			    };
+    my $cgi = $self->{cgi};
+    my @params = $cgi->param();
+    my $i = 0;
+    if ($attr->{list}) {
+	$self->{$attr->{dest}} = [];
+    }
+    while(1) {
+	my $p = $prefix;
+	my $hash = {};
+	if ($attr->{list}) {
+	    $p .= "${i}_";
+	}
+	foreach $var (@params) {
+	    if ($var =~ /^\Q$p\E\_?(\w+?)_(.*)$/) {
+		my $col = $2;
+		my $type = $1;
+		if ($type =~ /^d[dmy]$/) {
+		    # A date
+		    if (!$hash->{$col}) {
+			my $year = $cgi->param("${p}dy_$col");
+			my $month = $cgi->param("${p}dm_$col");
+			my $day = $cgi->param("${p}dd_$col");
+			if ($year < 20) {
+			    $year += 2000;
+			} elsif ($year < 100) {
+			    $year += 1900;
+			}
+			$hash->{$col} = { col => $col,
+					  val => sprintf("%04d-%02d-%02d",
+							 $year, $month, $day),
+					  type => 'd',
+					  year => $year,
+					  month => $month,
+					  day => $day
+					  };
+		    }
+		} else {
+		    $hash->{$col} = { col => $col,
+				      type => $type,
+				      val => $self->{cgi}->param($var)
+				      };
+		}
+	    }
+	}
+	if ($attr->{list}) {
+	    if (!%$hash) {
+		last;
+	    }
+	    $hash->{i} = $i++;
+	    push(@{$self->{$attr->{dest}}}, $hash);
+	} else {
+	    $self->{$attr->{dest}} = $hash;
+	    last;
 	}
     }
-    $self->{$attr->{dest}} = $hash;
     '';
 }
 end_of__ep_input
@@ -496,13 +627,13 @@ sub _ep_elseif ($$;$) {
 	$pop->{result} = $self->{_ep_output};
 	$pop->{current} = $self->{_ep_state} = 0;
     } elsif (!defined($pop->{result})) {
-	$pop->{current} = !$func->{condition} || ($attr->{eval} ? 1 : 0);
+	$pop->{current} = !$func->{condition} || ($attr->{'eval'} ? 1 : 0);
 	$self->{_ep_state} = $pop->{current} && $pop->{state};
 	if ($self->{debug}) {
-	    print($pop->{tag}, ": Eval = '",
-		  (defined($attr->{eval}) ? $attr->{eval} : ''),
-		  "' changing state to ",
-		  ($self->{_ep_state} ? 1 : 0), "\n");
+	    $self->print($pop->{tag}, ": Eval = '",
+			 (defined($attr->{'eval'}) ? $attr->{'eval'} : ''),
+			 "' changing state to ",
+			 ($self->{_ep_state} ? 1 : 0), "\n");
 	}
     }
     $self->{_ep_output} = '';
@@ -539,11 +670,12 @@ sub _ep_mail ($$;$) {
     }
     require Mail::Internet;
     my $mail = Mail::Internet->new([$self->ParseVars($body)], Header => $msg);
-    $ENV{SMTPHOSTS} = $host;
+    $ENV{SMTPHOSTS} = $host; # No way to do this with $self->{env} :-(
     $mail->smtpsend();
     '';
 }
 end_of__ep_mail
+
 
 );
 

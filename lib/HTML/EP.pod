@@ -475,9 +475,9 @@ the variable C<employees> contains a an array ref of refs with the attributes
 I<name> and I<department>. Then you could create a table of employees as
 follows:
 
-    <table><tr><th>Name</th><th>Department</th>
+    <table><tr><th>Nr.</th><th>Name</th><th>Department</th>
     <ep-list items="employees" item="e">
-	   <tr><td>$e->name$</td><td>$e->department$</td>
+	   <tr><td>$i$</td><td>$e->name$</td><td>$e->department$</td>
     </ep-list>
     </table>
 
@@ -486,6 +486,32 @@ retrieved from the variable C<employees>, create a variable C<e> and
 display the text between ep-list and /ep-list for it by replacing
 the patterns $e->name$ and $e->department$ with the corresponding
 values.
+
+The variable I<i> is initially set to 0 and incremented by one
+with any element.
+
+You must not create a variable for the I<items> attribute: When using
+a I<range> attribute instead of I<items> then a variable list will
+be created for you. The I<range> attribute can be either C<start..stop>
+in which case a list of the numbers start..stop will be created.
+Otherwise the attribute must be a comma separated list of values.
+See the I<ep-select> command below for an example of the I<range>
+attribute.
+
+
+=item ep-select
+
+This is similar to ep-list, but it is specifically designed for creating
+SELECT boxes and similar things. We explain it by example:
+
+    <ep-select name="year" range="1991..1995" item="y"
+               epparse-selected="$cgi->year$">
+        <OPTION $selected$>$y$</ep-select>
+
+If you supply a I<selected> attribute, then a variable I<selected> will
+be created for any item. The value will be either an empty string or
+the word C<SELECTED> (configurable via the attribute I<selected-text>),
+depending on whether the item matches the I<selected> value or not.
 
 
 =item ep-input
@@ -525,6 +551,45 @@ C<prefix_type_suffix>, the type being either 't' for text or 'n' for
 number. The idea is generating SQL queries automatically out of the
 C<address> variable.
 
+There are situations where you want to fetch not only a single object,
+but a list of objects. Suggest an order form of articles. Then you
+might have input fields I<art_0_t_name>, I<art_0_n_count>, I<art_0_n_price>,
+I<art_1_t_name>, ...
+
+In that case you can give the I<ep-input> command an attribute list, like
+this:
+
+    <ep-input prefix="art_" dest="art" list=1>
+
+The module will read an array ref of objects to the variable C<dest>.
+Any object will have an additional scalar variable C<i> referring to
+the items number, beginning with 0. In other words, you can process the
+order form as follows:
+
+    <ep-input prefix="art_" dest="art" list=1>
+    <ep-perl>
+      my $self = $_;
+      my $sum = 0.0;
+      for (my $i = 0;  defined($self->{cgi}->param("art_$i_n_count"));
+	   $i++) {
+	  $sum += $self->{cgi}->param("art_$i_n_count") *
+                  $self->{cgi}->param("art_$i_n_price")
+      }
+      ''
+    </ep-perl>
+    <ep-mail epparse-from="$cgi->email$" to="order@mydomain"
+             subject="Order form">
+      The following items have been ordered:
+
+        Nr.    Price   Article
+
+      <ep-list>
+        $art->count->val$  $art->price->val$  $art->name->val$
+      </ep-list>
+
+      Total sum: $sum$
+    </ep-mail>
+
 =back
 
 
@@ -555,6 +620,46 @@ example:
 The example is of course somewhat unnatural, because you'd better use
 a single ep-perl in that case, but it shows that we can use
 arbitrary complex structures of conditional HTML.
+
+
+=head2 Localization
+
+Localization is available via the HTML::EP::Locale module. Currently
+it only offers methods for localizing strings.
+
+To access the module, start your HTML page with
+
+    <ep-package name="HTML::EP::Locale" require=1>
+
+When the package is loaded, it tries to guess your documents language.
+The default language is I<de> (german; I ought to make this configurable).
+You can specify another language (for example I<en> for english or
+I<fr> for french) by either supplying a CGI variable C<language=xy>
+or giving your document a secondary extension like C<page.xy.ep>.
+That is, if your document is called
+
+    mypage.de.ep
+
+then the language I<de> will be choosen, but I<de> will be choosen for
+
+    mypage.en.ep
+
+Two methods are available for localizing strings. For short strings like
+titles, headers or Link refs you might prefer this version:
+
+    <ep-language de="Titel" en="Title">
+
+Obviously this is not appropriate for longer strings and it must not
+contain HTML patterns. Thus another version is available:
+
+    <ep-language language=de>
+      <p>Dies ist ein Absatz.</p>
+      <p>Dies ist der zweite Absatz.</p>
+    </ep-language>
+    <ep-language language=en>
+      <p>This is one paragraph.</p>
+      <p>This is another paragraph.</p>
+    </ep-language>
 
 
 =head2 Error handling
@@ -659,6 +764,84 @@ final attribute value.
 
 WARNING: As already said, use of C<epparse-> and C<epperl-> is dangerous,
 as these things are likely to be changed in the future.
+
+
+=head2 Producing Non-HTML
+
+Say you want a CGI binary that creates a gif and not an HTML document.
+(See the C<ifgif.ep> file from the SNMP::Monitor distribution for an
+example.) This can be done in the following way:
+
+=over 8
+
+=item 1.)
+
+Create your own MIME header, for example like this:
+
+    <ep-perl>
+        my $self = $_;
+        $self->print("HTTP/1.0 200 OK\n",
+                     "content-type: image/gif\n"
+                     "\n");
+    </ep-perl>
+
+=item 2.)
+
+Do whatever you want to create your image, for example restore it
+from a database:
+
+    <ep-database dsn="DBI:mysql:test" user="joe" password="joe">
+    <ep-query statement="SELECT image FROM images WHERE id = 0"
+              result="im">
+    <ep-perl>
+        my $self = $_;
+        $self->print($self->{im}->{image});
+    </ep-perl>
+
+=item 3.)
+
+Finally tell the EP module, that it must not produce any further output
+by doing a
+
+    <ep-perl>$_->Stop()</ep-perl>
+
+=back
+
+
+=head1 DEBUGGING
+
+Debugging CGI applications is always a problem. The EP module does its
+best to support you.
+
+Whenever you supply a CGI variable I<debug>, then the module will enter
+debugging mode. For example if your document is C</mypage.ep>, then
+tell your browser to fetch C</mypage.ep?debug=1>. You won't see the
+usual HTML page, but a plain text page with lots of debugging messages
+and the created HTML source.
+
+You may extend the debugging code with sequences like
+
+    <ep-perl>
+        my $self = $_;
+        if ($self->{debug}) { $self->print("I'm here!\n"); }
+    </ep-perl>
+
+Note that you should not call the I<print> function directly, but the
+I<print> method! The former works well in CGI environments, but EP
+should work even in other environments as well.
+
+But sometimes this is not sufficient: What's inserting debugging
+messages compared to using the Perl debugger? In that case you
+can emulate a CGI environment as follows:
+
+    export DOCUMENT_ROOT=/usr/local/www/htdocs
+    export PATH_TRANSLATED=$DOCUMENT_ROOT/mypage.ep
+    export REQUEST_METHOD=GET
+    export QUERY_STRING="var1=val1&var2=val2"
+    perl -d /usr/bin/ep.cgi
+
+This allows you single-stepping through your program, displaying variable
+values and the like.
 
 
 =head1 EXTENSIONS

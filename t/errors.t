@@ -22,6 +22,8 @@ require HTML::EP;
 sub Test2($$;@) {
     my $a = shift;
     my $b = shift;
+    $a =~ s/\d+/1/sg;
+    $b =~ s/\d+/1/sg;
     my $c = ($a eq $b);
     if (!Test($c, @_)) {
 	printf("Expected:\n%s\nGot:\n%s\n", unpack("H*", $b),
