@@ -160,11 +160,16 @@ Installing this module (and the prerequisites from above) is quite simple,
 if you have the CPAN module available and network access, you might
 try an automatic installation:
 
-	perl -MCPAN -e shell
+    perl -MCPAN -e shell
 
 If the CPAN prompt appears, asking you for commands, enter
 
-        install Bundle::HTML::EP
+    install Bundle::HTML::EP
+
+Automatic installation typically doesn't work on Windows, due to a
+missing C development environment. However, you might try
+
+    ppm install http://www.cpan.org/authors/id/J/JW/JWIED/HTML-EP.ppd
 
 
 =head2 Manual Installation
@@ -217,7 +222,8 @@ Apache, you can add the following lines to your C<srm.conf>:
     Action x-ep-script /cgi-bin/ep.cgi
 
 This tells Apache that files with extension ep.cgi are handled by the
-CGI binary C</usr/bin/ep.cgi>. Make sure, that the ScriptAlias line is
+CGI binary C</usr/bin/ep.cgi>.  On Windows, you should replace ep.cgi
+with ep.cgi.bat. Make sure, that the ScriptAlias line is
 entered *before* any other ScriptAlias instruction! In particular,
 the following would be wrong:
 

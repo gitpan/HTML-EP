@@ -132,11 +132,11 @@ my $status = $@;
 my %opts = (
     'NAME'	   => 'HTML::EP',
     'VERSION_FROM' => 'lib/HTML/EP.pm',
-    'EXE_FILES'    => [ 'ep.cgi' ],
+    'EXE_FILES'    => [ "ep.cgi" ],
     'dist'         => { 'SUFFIX'       => ".gz",
 			'DIST_DEFAULT' => 'all tardist',
 			'COMPRESS'     => "gzip -9vf" },
-    'clean'        => { 'FILES' => 'ep.cgi' },
+    'clean'        => { 'FILES' => "ep.cgi" },
     'realclean'    => { 'FILES' => 'lib/HTML/EP/Config.pm' },
 );
 

@@ -43,8 +43,8 @@ DESCRIPTION
 
         Sending mail out from the page
 
-        Building a database connection, passing CGI input to the database and
-        vice versa
+        Building a database connection, passing CGI input to the database
+        and vice versa
 
         Talking to HTML designers about realizing their wishes
 
@@ -80,9 +80,9 @@ DESCRIPTION
                 This module is used for parsing the HTML templates. My
                 thanks to Gisle Aas <aas@sn.no>.
 
-    libwww      The LWP library contains a lot of utility functions, for example
-                HTML and URL encoding and decoding. Again, my thanks to
-                Gisle Aas <aas@sn.no>. :-)
+    libwww      The LWP library contains a lot of utility functions, for
+                example HTML and URL encoding and decoding. Again, my thanks
+                to Gisle Aas <aas@sn.no>. :-)
 
     Mail::Internet
                 Graham Barr <gbarr@pobox.com> wrote the MailTools package.
@@ -90,9 +90,10 @@ DESCRIPTION
                 used for sending mail from within the HTML page. Thank very
                 much, Graham!
 
-    Storable    Raphael Manfredi's <Raphael_Manfredi@grenoble.hp.com> excellent
-                Storable module is used for storing sessions. I owe him
-                much, as Storable is usefull in a lot of other modules.
+    Storable    Raphael Manfredi's <Raphael_Manfredi@grenoble.hp.com>
+                excellent Storable module is used for storing sessions. I
+                owe him much, as Storable is usefull in a lot of other
+                modules.
 
     Perl itself and the above modules are available from any CPAN mirror,
     for example
@@ -108,11 +109,16 @@ DESCRIPTION
     simple, if you have the CPAN module available and network access, you
     might try an automatic installation:
 
-            perl -MCPAN -e shell
+        perl -MCPAN -e shell
 
     If the CPAN prompt appears, asking you for commands, enter
 
-            install Bundle::HTML::EP
+        install Bundle::HTML::EP
+
+    Automatic installation typically doesn't work on Windows, due to a
+    missing C development environment. However, you might try
+
+        ppm install http://www.cpan.org/authors/id/J/JW/JWIED/HTML-EP.ppd
 
   Manual Installation
 
@@ -164,9 +170,10 @@ DESCRIPTION
         Action x-ep-script /cgi-bin/ep.cgi
 
     This tells Apache that files with extension ep.cgi are handled by the
-    CGI binary `/usr/bin/ep.cgi'. Make sure, that the ScriptAlias line is
-    entered *before* any other ScriptAlias instruction! In particular, the
-    following would be wrong:
+    CGI binary `/usr/bin/ep.cgi'. On Windows, you should replace ep.cgi with
+    ep.cgi.bat. Make sure, that the ScriptAlias line is entered *before* any
+    other ScriptAlias instruction! In particular, the following would be
+    wrong:
 
         ScriptAlias /cgi-bin/ /home/httpd/cgi-bin/
         ...
@@ -568,17 +575,18 @@ DESCRIPTION
         In general column names beginning with *address* will be splitted
         into `prefix_type_suffix', the type being one of
 
-    t           Text columns (CHAR, VARCHAR, BINARY, or whatever), that will be
-                quoted using the $self->{'dbh'}->quote() method.
+        t       Text columns (CHAR, VARCHAR, BINARY, or whatever), that will
+                be quoted using the $self->{'dbh'}->quote() method.
 
-    n           Numeric columns (INTEGER, REAL, ...) that will be left untouched
+        n       Numeric columns (INTEGER, REAL, ...) that will be left
+                untouched
 
-    dd
-    dm
-    dy          Day, month and year of a date. The combined fields will be
+        dd
+        dm
+        dy      Day, month and year of a date. The combined fields will be
                 quoted as 'yyyy-mm-dd'.
 
-    s           Set columns as created using MultiSelect boxes; the selected
+        s       Set columns as created using MultiSelect boxes; the selected
                 values will be used for creating a comma separated string.
 
         The idea is generating SQL queries automatically out of the
@@ -760,8 +768,8 @@ DESCRIPTION
     Note the use of the single quotes, which is really required here.
     Available conditions are eq and ne.
 
-    As with ep-list, you may nest multiple ep-if's or combine them with ep-
-    list. The following is invalid, though:
+    As with ep-list, you may nest multiple ep-if's or combine them with
+    ep-list. The following is invalid, though:
 
       <ep-list range="1..3" item="i">
         <ep-if cnd="$i$<3">ok</ep-list></ep-if>
@@ -784,8 +792,8 @@ DESCRIPTION
     The default language is *de* (german) or whatever you choose when
     installing the package. Another language can be specified by
 
-    *       By setting the CGI variable *language*, for example by making a link
-            to mypage.ep?language=en.
+    *       By setting the CGI variable *language*, for example by making a
+            link to mypage.ep?language=en.
 
     *       By setting the environment variable *HTTP_ACCEPT_LANGUAGE*; most
             browsers do this for you. For example with Netscape, this
@@ -868,8 +876,9 @@ DESCRIPTION
 
             $varname$
 
-    This will be replaced automatically by the parser with the value of `$_-
-    >{varname}'. Even more, the value will be converted into HTML source!
+    This will be replaced automatically by the parser with the value of
+    `$_->{varname}'. Even more, the value will be converted into HTML
+    source!
 
     If `varname' is a structured variable, for example a hash or array ref,
     you may as well use
@@ -1047,8 +1056,8 @@ DESCRIPTION
           $self->Stop();
         </ep-perl>
 
-    Note, that *no* more output will be produced by EP after calling $self-
-    >Stop()!
+    Note, that *no* more output will be produced by EP after calling
+    $self->Stop()!
 
 DEBUGGING
     Debugging CGI applications is always a problem. The EP module does its
@@ -1273,8 +1282,8 @@ CHANGES
     part of the distribution.
 
     epparse
-    epperl  In previous versions it was not possible to include EP variables or
-            Perl code in attributes of EP commands, unless using a prefix
+    epperl  In previous versions it was not possible to include EP variables
+            or Perl code in attributes of EP commands, unless using a prefix
             `epparse-' or `epperl-', as in
 
                 <ep-mail to=joe epparse-from="$cgi->mail$" subject=Hello>

@@ -1,3 +1,8 @@
+2001-01-05  Jochen Wiedmann  <joe@ispsoft.de> (0.2011)
+
+	* ep.cgi.PL: Minor compatibility fix for Win32: Now treating
+	  / and \ as a path separator.
+
 1999-12-15  Jochen Wiedmann  <joe@ispsoft.de> (0.2010)
 
 	* t/errors.t: Minor fixes for Windows compatibility of the

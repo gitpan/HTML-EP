@@ -40,7 +40,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2010';
+$HTML::EP::VERSION = '0.2011';
 
 
 sub new {

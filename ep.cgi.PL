@@ -53,7 +53,7 @@ $SIG{'__WARN__'} = \&HTML::EP::WarnHandler;
 my $self = HTML::EP->new();
 $ENV{'PATH_TRANSLATED'} = shift @ARGV if @ARGV; # For IIS
 my $path = $ENV{'PATH_TRANSLATED'};
-if ($path =~ /(.*)\//) {
+if ($path =~ /(.*)[\/\\]/) {
     chdir $1;
 }
 $self->CgiRun($path);
