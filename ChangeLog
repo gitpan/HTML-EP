@@ -1,3 +1,9 @@
+1998-10-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1112)
+
+	* lib/HTML/EP/Locale.pm (init): Fixed typo in default language.
+	* Added examples/admin.
+	* Added examples/edit.ep.
+
 1998-10-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1111)
 
 	* ep-error mismatched user and system error.

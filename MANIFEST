@@ -14,3 +14,11 @@ t/errors.t			Error handling test
 t/misc.t			Miscellaneous commands
 t/session.t			Session test
 t/vars.t			Variable handling test
+examples/admin/README		User administration (Docs)
+examples/admin/group.ep		User administration (Group management)
+examples/admin/index.ep		User administration (Menu)
+examples/admin/rmgroup.ep	User administration (Group removal)
+examples/admin/rmuser.ep	User administration (User removal)
+examples/admin/user.ep		User administration (User managament)
+examples/admin/usersModified	Script for creating users and groups
+examples/edit.ep		Generic script for editing DBI tables

@@ -929,6 +929,22 @@ This allows you single-stepping through your program, displaying variable
 values and the like.
 
 
+=head1 EXAMPLES
+
+The program comes with a set of examples incorporated. These are:
+
+  - A simple Unix user administration in examples/admin.
+
+  - A generic frontend for editing DBI tables in examples/edit.ep
+
+Other examples are:
+
+  - The SNMP monitor, a utility for watching, logging and displaying
+    interface utilization and status of network interfaces via WWW.
+    See the directory authors/id/JWIED on any CPAN mirror, for example
+    ftp://ftp.funet.fi/pub/languages/perl/CPAN.
+
+
 =head1 EXTENSIONS
 
 It is quite easy to write own methods.
