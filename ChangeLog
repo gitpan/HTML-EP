@@ -1,3 +1,11 @@
+1999-02-08  Jochen Wiedmann  <joe@ispsoft.de>
+
+	* lib/HTML/EP/Examples/Glimpse.pm: Fixed a bug in the parser of
+	  glimpse's output: Files without title (that is, files, where
+	  glimpseindex doesn't detect a title) have not been handled.
+	* lib/HTML/EP.pm (_ep_if_eval): Fixed a possible read-only-value
+	  modification.
+
 1999-02-07  Jochen Wiedmann  <joe@ispsoft.de> (0.1125)
 
 	* lib/HTML/EP.pm (ep_if): Added neval and cnd attributes.

@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1125';
+$HTML::EP::VERSION = '0.1126';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -532,14 +532,15 @@ sub _ep_if_eval {
     die "Missing condition" unless(exists($attr->{'cnd'}));
     if ($attr->{'cnd'} =~ /^(.*?)(==|!=|<=?|>=?)(.*)$/) {
 	$self->print("$tag: Numeric condition $1 $2 $3\n") if $debug;
-	$1 ||= 0;
-	$3 ||= 0;
-	return ($1 == $3) if $2 eq '==';
-	return ($1 != $3) if $2 eq '!=';
-	return ($1 < $3) if $2 eq '<';
-	return ($1 > $3) if $2 eq '>';
-	return ($1 >= $3) if $2 eq '>=';
-	return ($1 <= $3);
+	my $left = $1 || 0;
+	my $cnd = $2;
+	my $right = $3 || 0;
+	return ($left == $right) if $cnd eq '==';
+	return ($left != $right) if $cnd eq '!=';
+	return ($left < $right) if $cnd eq '<';
+	return ($left > $right) if $cnd eq '>';
+	return ($left >= $right) if $cnd eq '>=';
+	return ($left <= $right);
     }
     die "Cannot parse condition cnd=$attr->{'cnd'}"
 	unless $attr->{'cnd'} =~ /^\s*\'(.*?)\'\s*(eq|ne)\s*\'(.*)\'\s*$/;
