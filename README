@@ -154,7 +154,7 @@ DESCRIPTION
     From now on your server will never return files with extension .ep
     directly! Verify your installation by creating the following file:
 
-        <html><head><title>Local time</time></head>
+        <html><head><title>Local time</title></head>
         <body>
         The current time is:
         <ep-perl>scalar(localtime(time))</ep-perl>

@@ -109,6 +109,9 @@ if ($self->{cgi}->param('debug')) {
 	    print " $p = ", $self->{cgi}->param($p), "\n";
 	}
 	$self->{debug} = 1;
+    } else {
+	print STDERR ("Debugging not permitted from ", $ENV{'REMOTE_HOST'},
+		      ", restricted to $debughosts\n");
     }
 }
 my $output = eval { $self->Run(); };

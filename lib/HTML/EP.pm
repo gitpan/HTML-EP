@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1112';
+$HTML::EP::VERSION = '0.1113';
 
 
 %HTML::EP::BUILTIN_FORMATS = (

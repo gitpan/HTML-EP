@@ -103,8 +103,17 @@ sub handler ($$) {
     $self->{_ep_r} = $r;
     if ($self->{cgi}->param('debug')) {
 	my $debughosts = $HTML::EP::Config::CONFIGURATION->{'debughosts'};
-	if (!$debughosts  ||  $ENV{'REMOTE_HOST'} =~ /$debughosts/) {
+	my $c = $r->connection();
+	if (!$debughosts  ||  $c->remote_ip() =~ /$debughosts/) {
 	    $self->{'debug'} = 1;
+	} else {
+	    my $host = $r->get_remote_host();
+	    if ($host =~ /$debughosts/) {
+		$self->{'debug'} = 1;
+	    } else {
+		print STDERR "Debugging mode is restricted to $debughosts"
+		    . " and not permitted from " . $c->remote_ip();
+	    }
 	}
     }
     if ($self->{'debug'}) {

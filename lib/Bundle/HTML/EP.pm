@@ -32,6 +32,12 @@ Mail::Internet 1.12
 
 ExtUtils::PerlPP
 
+Text::CSV_XS
+
+SQL::Statement
+
+DBD::CSV
+
 =head1 DESCRIPTION
 
 This bundle includes all that's needed to run the HTML::EP package with

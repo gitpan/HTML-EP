@@ -1,3 +1,7 @@
+1998-10-19  Jochen Wiedmann  <joe@ispsoft.de> (0.1113)
+
+	* HTML::EP::Shop and examples/shop (To be finished).
+
 1998-10-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1112)
 
 	* lib/HTML/EP/Locale.pm (init): Fixed typo in default language.

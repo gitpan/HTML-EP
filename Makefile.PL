@@ -108,7 +108,8 @@ if (-f "lib/HTML/EP/Config.pm") {
     my $mailhost = $oldcfg->{'mailhost'} || "127.0.0.1";
     $cfg->{'mailhost'} =
 	prompt("\nEnter a mail server for sending mails: ", $mailhost);
-    my $debughosts = $oldcfg->{'debughosts'} ||	'^127\.0\.0\.1$';
+    my $debughosts = $oldcfg->{'debughosts'} ||
+	'^(?:127\.0\.0\.1$|192\.168\.)';
     $cfg->{'debughosts'} =
         prompt("\nSecurity: Enter a regular expression for hosts that may"
                . " enter debugging\nmode: ", $debughosts);
