@@ -30,7 +30,7 @@ require Symbol;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1005';
+$HTML::EP::VERSION = '0.1006';
 @HTML::EP::ISA = qw(HTML::Parser);
 
 
@@ -52,7 +52,7 @@ $HTML::EP::VERSION = '0.1005';
 			 default => 'template' },
     'ep-select' =>     { method => '_ep_list',
                          default => 'template',
-			 format => '<SELECT NAME="$name$">$@output$</SELECT>' },
+			 'format' => '<SELECT NAME="$name$">$@output$</SELECT>' },
     'ep-input' =>      { method => '_ep_input' },
     'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
@@ -362,8 +362,8 @@ sub _ep_perl ($$;$) {
 	if (!defined($fh)  ||  !close($fh)) {
 	    die "Error while reading $file: $!";
 	}
-    } elsif ($attr->{require}) {
-	$code = sprintf("require %s; ''", $attr->{package});
+    } elsif ($attr->{'require'}) {
+	$code = sprintf("require %s; ''", $attr->{'package'});
     } else {
 	$code = $attr->{code};
 	if (!defined($code)) {

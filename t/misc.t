@@ -128,9 +128,13 @@ _END_OF_HTML
 my $dbh = $parser->{dbh};
 
 
-if (-f 'foo') { unlink 'foo'; }
-$parser = HTML::EP->new();
-$input = <<'_END_OF_HTML';
+if (!$have_dbi  ||  !$have_dbd_csv) {
+    ++$numTests;
+    print "ok $numTests # Skip\n";
+} else {
+    if (-f 'foo') { unlink 'foo'; }
+    $parser = HTML::EP->new();
+    $input = <<'_END_OF_HTML';
 <HTML>
 <ep-database dsn="DBI:CSV:">
 <ep-query statement="CREATE TABLE foo (id INTEGER, name VARCHAR(64))">
@@ -144,7 +148,7 @@ $input = <<'_END_OF_HTML';
 </TABLE>
 </HTML>
 _END_OF_HTML
-$output = <<'_END_OF_HTML';
+    $output = <<'_END_OF_HTML';
 <HTML>
 
 
@@ -160,10 +164,6 @@ $output = <<'_END_OF_HTML';
 </TABLE>
 </HTML>
 _END_OF_HTML
-if (!$have_dbi  ||  !$have_dbd_csv  ||  !$dbh) {
-    ++$numTests;
-    print "ok $numTests # Skip\n";
-} else {
     Test2($parser->Run($input), $output, "SQL queries.\n");
 }
 
