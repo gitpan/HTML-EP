@@ -35,6 +35,10 @@ sub Test2($$;@) {
     my $b = shift;
     $a =~ s/\d+/1/sg;
     $b =~ s/\d+/1/sg;
+
+    # ActivePerl prints the full path of the error location rather
+    # than the relative path...
+    $a =~ s/\S:\/.*?\/blib\/lib/blib\/lib/m;
     my $c = ($a eq $b);
     if (!Test($c, @_)) {
 	printf("Expected:\n%s\nGot:\n%s\n", unpack("H*", $b),

@@ -53,7 +53,7 @@ if (HaveModule("HTML::EP::Install")) {
     print STDERR "$@\n";
     print "not ok 9\n";
 }
-if (HaveModule("DBI")) {
+if (HaveModule("DBI")  &&  HaveModule("Storable")) {
     if (HaveModule("HTML::EP::Session::DBI")) {
 	print "ok 10\n";
     } else {

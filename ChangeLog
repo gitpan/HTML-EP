@@ -1,3 +1,8 @@
+1999-12-15  Jochen Wiedmann  <joe@ispsoft.de> (0.2010)
+
+	* t/errors.t: Minor fixes for Windows compatibility of the
+	  test suite.
+
 1999-12-05  Jochen Wiedmann  <joe@ispsoft.de> (0.2008)
 
 	* lib/HTML/EP.pm (_ep_set): Added "noparse" attribute.
