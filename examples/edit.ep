@@ -296,8 +296,9 @@
 	if (!defined($str)) {
 	    $str = $self->{'accept_nulls'} ? "NULL" : "";
 	} else {
-	    HTML::Entities::encode_entities($str);
+	    $str =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
 	}
+	$str;
     };
 
     $self->{'errors'} = $errors;

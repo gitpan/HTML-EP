@@ -31,7 +31,7 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1128';
+$HTML::EP::VERSION = '0.1130';
 
 
 %HTML::EP::BUILTIN_METHODS = (
@@ -180,7 +180,7 @@ sub ParseVar ($$$$) {
     if (!defined($var)) { $var = ''; }
 
     if (!$type  ||  $type eq '%') {
-	$var = HTML::Entities::encode($var);
+	$var =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
     } elsif ($type eq '#') {
 	$var = URI::Escape::uri_escape($var);
     } elsif ($type eq '~') {
@@ -336,14 +336,14 @@ sub parse
 			$eaten .= $1;
 			if (defined($tag)) {
 			    $val = $2;
-			    HTML::Entities::decode($val);
+			    HTML::Entities::decode_entities($val);
 			}
 		    # or quoted by " or '
 		    } elsif ($$buf =~ s|(^=\s*([\"\'])(.*?)\2\s*)||s) {
 			$eaten .= $1;
 			if (defined($tag)) {
 			    $val = $3;
-			    HTML::Entities::decode($val);
+			    HTML::Entities::decode_entities($val);
 			}
                     # truncated just after the '=' or inside the attribute
 		    } elsif ($$buf =~ m|^(=\s*)$| or
@@ -812,7 +812,7 @@ sub _ep_perl ($$;$) {
     if ($attr->{output}) {
 	my $type = lc $attr->{output};
 	if ($type eq 'html') {
-	    $output = HTML::Entities::encode($output);
+	    $output =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
 	} elsif ($type eq 'url') {
 	    $output = URI::Escape::uri_escape($output);
 	}
@@ -908,11 +908,10 @@ sub _ep_select ($$;$) {
 	return undef;
     }
     my @tags;
-    my($var, $val);
-    while (($var, $val) = each %$attr) {
+    while (my($var, $val) = each %$attr) {
 	if ($var !~ /^template|range|format|items?|selected(?:\-text)?$/i){
-	    push(@tags, sprintf('%s="%s"', $var,
-			        HTML::Entities::encode($val)));
+	    $val =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
+	    push(@tags, sprintf('%s="%s"', $var, $val));
 	}
     }
 

@@ -164,7 +164,7 @@ sub _ep_html_ep_examples_glimpse_create {
         $self->print("Making function for directory match: $func",
                      " ($matchesDirsIgnored))\n") if $debug;
     } else {
-        $matchesDirsIgnored = sub { 1 }
+        $matchesDirsIgnored = sub { 0 }
     }
     my $suffixList = $prefs->{'suffix'};
     $suffixList =~ s/\s+/ /sg;

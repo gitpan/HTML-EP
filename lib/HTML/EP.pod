@@ -804,6 +804,12 @@ Note you need not use a /ep-language for terminating the german
 part, similar to the ep-if, ep-elseif, ..., ep-else, /ep-if
 structure.
 
+A special problem with localization is the choice of a character
+set. You can fix a certain character set with something like
+
+  <META HTTP-EQUIV="Content-type"
+        CONTENT="text/html; CHARSET: iso-8859-2">
+
 
 =head2 Error handling
 

@@ -748,6 +748,12 @@ DESCRIPTION
     part, similar to the ep-if, ep-elseif, ..., ep-else, /ep-if
     structure.
 
+    A special problem with localization is the choice of a character
+    set. You can fix a certain character set with something like
+
+      <META HTTP-EQUIV="Content-type"
+            CONTENT="text/html; CHARSET: iso-8859-2">
+
   Error handling
 
     Error handling with EP is quite simple: All you do in case of

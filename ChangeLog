@@ -1,3 +1,21 @@
+1999-05-05  Jochen Wiedmann  <joe@ispsoft.de> (0.1130)
+
+	* lib/HTML/EP.pm: Added '$' to the set of encoded
+	  entities to work around problems where $...$ was
+	  erroneously interpreted as an EP variable.
+	* Now using HTML::Entities::char2entity rather than
+	  HTML::Entities::encode_entities.
+
+1999-04-04  Jochen Wiedmann  <joe@ispsoft.de> (0.1129)
+
+	* lib/HTML/EP/Examples/Glimpse.pm (glimpse_create):
+	  $matchesDirsIgnored did by default return a TRUE value.
+	  (Richard Dice <rdice@www.shad.ca>)
+	* lib/HTML/EP.pm: HTML::Entities::encode_entities is
+	  now called with '<&>"' as second argument. This should
+	  enable working with other character sets that ISO-8859-1.
+	  Thanks to Jiri Novak <bati@podvodnik.cz> for the hint.
+
 1999-02-26  Jochen Wiedmann  <joe@ispsoft.de> (0.1128)
 
 	* lib/HTML/EP/Session/Cookie.pm (encode): Added support for

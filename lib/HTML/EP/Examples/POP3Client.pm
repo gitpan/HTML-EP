@@ -233,14 +233,17 @@ sub _ep_examples_pop3client_reply {
 sub _format_HNBSP {
     my $self = shift;  my $str = shift;
     return '&nbsp;' if !defined($str) || $str eq '';
-    HTML::Entities::encode_entities($str);
+    $str =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
+    $str;
 }
 
 sub _format_BR {
     my $self = shift;  my $str = shift;
     return '' unless defined($str);
     join("<BR>\n",
-	 map { HTML::Entities::encode_entities($_) } split(/\r?\n/s, $str));
+	 map {
+	       $_ =~ s/([<&>"])/$HTML::Entities::char2entity{$1}/g;
+	       $_ } split(/\r?\n/s, $str));
 }
 
 1;
