@@ -11,7 +11,8 @@ lib/HTML/EP/Locale.pm		Localization
 lib/HTML/EP/Session.pm		Session management
 lib/HTML/EP/Session/Cookie.pm	Cookie sessions
 lib/HTML/EP/Shop.pm		E-Commerce support
-lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration.
+lib/HTML/EP/Examples/Admin.pm   Library for Firewall administration
+lib/HTML/EP/Examples/Glimpse.pm Library for a simple search engine
 ep.cgi.PL			CGI binary (standalone)
 t/base.t			Base test (loading the modules)
 t/errors.t			Error handling test
@@ -26,10 +27,18 @@ examples/admin/mail2group	Firewall administration (Mail forwarder)
 examples/admin/mail2group.ep	Firewall administration (Mail forwarder admin)
 examples/admin/rmgroup.ep	Firewall administration (Group removal)
 examples/admin/rmuser.ep	Firewall administration (User removal)
-examples/admin/squid.ep		Firewall administration
+examples/admin/squid.ep		Firewall administration (Squid configuration)
+examples/admin/squid_simple.ep	Firewall administration (Same, but simple)
 examples/admin/user.ep		Firewall administration (User managament)
 examples/admin/usersModified	Firewall administration (Backend)
 examples/edit.ep		Generic script for editing DBI tables
+examples/glimpse/README		Search engine (Docs)
+examples/glimpse/admin.ep	Search engine (Main admin page)
+examples/glimpse/advanced.ep	Search engine (Advanced search page)
+examples/glimpse/glimpseindex.ep Search engine (Building the index)
+examples/glimpse/index.ep	Search engine (Creating the query)
+examples/glimpse/prefs.ep	Search engine (Setting the Prefs)
+examples/glimpse/search.ep	Search engine (Displaying the results)
 examples/shop/README		Shopping cart (Docs)
 examples/shop/admin/index.ep	Shopping cart (Main administration page)
 examples/shop/admin/download.ep	Shopping cart (Download page)

@@ -35,7 +35,6 @@ if ($mod_perl) {
 	method => '_ep_language',
 	default => 'string'
 	};
-    $HTML::EP::BUILTIN_FORMATS{'DM'} = \&_format_DM;
 }
 
 
@@ -58,8 +57,6 @@ sub init ($) {
  		method => '_ep_language',
  		default => 'string'
  		};
- 	    my $formats = $self->{'_ep_custom_formats'};
- 	    $formats->{'DM'} = \&_format_DM;
 	}
     }
 }

@@ -75,6 +75,7 @@ sub _ep_html_ep_examples_admin_squid {
     my $self = shift; my $attr = shift;
     my $cgi = $self->{'cgi'};
     my $prefs = $self->_prefs();
+    my $debug = $self->{'debug'};
 
     my $verify_squid_range = sub {
         my($from, $to, $active, $name) = @_;
@@ -122,20 +123,33 @@ sub _ep_html_ep_examples_admin_squid {
     }
 
     if ($modified) {
-        if ($self->{'debug'}) {
-	    $self->print("Modifications detected.\n");
-	}
+	$self->print("Modifications detected.\n") if $debug;
         $prefs->{'squid_ranges'} = \@range;
 	$self->_prefs($prefs);
-    } else {
-        if ($self->{'debug'}) {
-	    $self->print("No modifications detected.\n");
+	my $path_users_modified =
+	    ($attr->{'users-modified-path'}  ||
+	     $self->{'admin_config'}->{'users_modified_path'})
+		or die "Path of usersModified binary not set";
+	if ($path_users_modified ne 'none') {
+	    die "No such binary: $path_users_modified"
+		unless -f $path_users_modified;
+	    my @command = ($path_users_modified, '--squid');
+	    foreach my $r (@range) {
+		next unless $r->{'active'};
+		push(@command,
+		     "--range", "$r->{'from'},$r->{'to'},$r->{'name'}");
+	    }
+	    $self->print("Executing command: ", join(" ", @command), "\n")
+		if $debug;
+	    system @command;
 	}
+    } else {
+	$self->print("No modifications detected.\n") if $debug;
         $prefs->{'squid_ranges'} ||= [];
     }
     @range = sort { $a->{name} cmp $b->{name}} @{$prefs->{'squid_ranges'}};
     $self->{'ranges'} = \@range;
-    if ($self->{'debug'}) {
+    if ($debug) {
         $self->print("Squid IP ranges:\n");
 	foreach my $r (@{$prefs->{'squid_ranges'}}) {
 	    $self->printf("    Name %s, From %s, To %s, Active %s\n",
@@ -145,10 +159,10 @@ sub _ep_html_ep_examples_admin_squid {
     }
 
     $self->{'admin_config'}->{'squid_conf_path'} ||= '/etc/squid.conf';
-    $self->{'_ep_custom_formats'}->{'RANGE_SELECTED'} = sub {
-        my $self = shift;  my $val = shift;
-	$val ? "" : "SELECTED";
-    };
     '';
 }
 
+sub _format_RANGE_SELECTED {
+    my $self = shift;  my $val = shift;
+    $val ? "" : "SELECTED";
+}

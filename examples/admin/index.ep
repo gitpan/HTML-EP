@@ -56,16 +56,16 @@
     system is administrated
     <a href="mail2group.ep?language=$_ep_language$">here</a>.
     </ep-language>
-<li><ep-language language="de">
-    Die Verwaltung des WWW-Proxyservers
-    <a href="http://squid.nlanr.net">Squid</a> können Sie
-    <a href="squid.ep?language=$_ep_language$">hier</a> vornehmen.
-    </ep-language>
-    <ep-language language="en">
-    The administration of the WWW proxy server
-    <a href="http://squid.nlanr.net">Squid</a> is happening
-    <a href="squid.ep?language=$_ep_language$">here</a>.
-    </ep-language>
+<li><ep-language de="Die Verwaltung des WWW-Proxyservers"
+                 en="The administration of the WWW proxy server">
+    <a href="http://squid.nlanr.net">Squid</a>
+    <ep-language de="können Sie" en="is happening">
+    <a href="squid.ep?language=$_ep_language$">
+    <ep-language de="hier" en="here"></a>
+    <ep-language de="vornehmen. Es gibt auch eine"
+                 en="There also is a more">
+    <a href="squid_simple.ep?language=$_ep_language$">
+    <ep-language de="einfachere Variante" en="simple version"></a>.
 </ul>
 </body>
 </html>

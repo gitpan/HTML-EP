@@ -31,46 +31,38 @@ require HTML::EP::Config;
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.1118';
+$HTML::EP::VERSION = '0.1123';
 
-
-%HTML::EP::BUILTIN_FORMATS = (
-    'NBSP' => sub {
-	my $self = shift; my $str = shift;
-	if (!defined($str)  ||  $str eq '') {
-	    $str = '&nbsp;';
-	}
-	$str;
-    }
-);
 
 %HTML::EP::BUILTIN_METHODS = (
     'ep-comment' =>    { method => '_ep_comment',
 			 default => 'comment',
 		         always => 1 },
-    'ep-perl' =>       { method => '_ep_perl',
-			 default => 'code' },
     'ep-errhandler' => { method => '_ep_errhandler',
 			 default => 'template' },
-    'ep-error' =>      { method => '_ep_error',
-			 default => 'msg' },
-    'ep-query' =>      { method => '_ep_query',
-			 default => 'statement' },
-    'ep-list' =>       { method => '_ep_list',
-			 default => 'template' },
-    'ep-select' =>     { method => '_ep_select',
-                         default => 'template' },
-    'ep-if' =>         { method => '_ep_if',
+    'ep-else' =>       { method => '_ep_elseif',
 			 default => 'result',
+			 condition => 0,
 		         always => 1 },
     'ep-elseif' =>     { method => '_ep_elseif',
 			 default => 'result',
 			 condition => 1,
 		         always => 1 },
-    'ep-else' =>       { method => '_ep_elseif',
+    'ep-error' =>      { method => '_ep_error',
+			 default => 'msg' },
+    'ep-if' =>         { method => '_ep_if',
 			 default => 'result',
-			 condition => 0,
 		         always => 1 },
+    'ep-list' =>       { method => '_ep_list',
+			 default => 'template' },
+    'ep-perl' =>       { method => '_ep_perl',
+			 default => 'code' },
+    'ep-query' =>      { method => '_ep_query',
+			 default => 'statement' },
+    'ep-select' =>     { method => '_ep_select',
+                         default => 'template' },
+    'ep-set' =>        { method => '_ep_set',
+		         default => 'val' },
     'ep-mail' =>       { method => '_ep_mail',
 			 default => 'body' }
 );
@@ -129,7 +121,7 @@ sub new ($;$) {
     $self->{'_ep_headers'} ||= {};
     $self->{'_ep_cookies'} ||= {};
     $self->{'_ep_funcs'} ||= { %HTML::EP::BUILTIN_METHODS };
-    $self->{'_ep_custom_formats'} ||= { %HTML::EP::BUILTIN_FORMATS };
+    $self->{'_ep_custom_formats'} ||= { };
     $self->{'_ep_output'} = '';
     $self->{'_ep_state'} = 1;
     $self->{'_ep_buf'} = '';
@@ -170,9 +162,9 @@ sub ParseVar ($$$$) {
 
     if ($type  &&  $type eq '&') {
 	# Custom format
-	if (!($func = $self->{'_ep_custom_formats'}->{$var})) {
-	    die "No such custom format: $var";
-	}
+	$func = $self->{'_ep_custom_formats'}->{$var}
+	    || "_format_$var";
+
 	# First part of subvar becomes var
 	if ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
 	    $var = $1;
@@ -211,7 +203,7 @@ sub ParseVar ($$$$) {
 	if (!$self->{dbh}) { die "Not connected"; }
 	$var = $self->{dbh}->quote($var);
     } elsif ($func) {
-	$var = &$func($self, $var);
+	$var = ref($func) ? &$func($self, $var) : $self->$func($var);
     }
 
     $var;
@@ -516,14 +508,17 @@ sub CgiRun ($$;$) {
 	    my $errfile = $self->{_ep_err_type} ?
 	        $self->{_ep_err_file_user} : $self->{_ep_err_file_system};
 	    if ($errfile) {
-	        my $derrfile =
-		   $r ? $r->cgi_var('DOCUMENT_ROOT') : $ENV{'DOCUMENT_ROOT'};
-		if ($self->{'debug'}) {
-		    $self->print("Error type = " . $self->{_ep_err_type} .
-				 ", error file = $errfile" .
-				 ", derror file = $derrfile\n");
+		if ($errfile =~ /^\//) {
+		    my $derrfile = $r ?
+			$r->cgi_var('DOCUMENT_ROOT') : $ENV{'DOCUMENT_ROOT'}
+			    . $errfile;
+		    if ($self->{'debug'}) {
+			$self->print("Error type = " . $self->{_ep_err_type} .
+				     ", error file = $errfile" .
+				     ", derror file = $derrfile\n");
+		    }
+		    if (-f $derrfile) { $errfile = $derrfile }
 		}
-		if (-f $derrfile) { $errfile = $derrfile }
 		eval {
 		    require Symbol;
 		    my $fh = Symbol::gensym();
@@ -721,11 +716,6 @@ _ep_package => <<'end_of__ep_package',
 sub _ep_package ($$;$) {
     my $self = shift; my $attr = shift;
     my $package = $attr->{name};
-    bless($self, $package);
-    if ($attr->{'isa'}) {
-	no strict 'refs';
-	@{$package."::ISA"} = split(',', $attr->{'isa'});
-    }
     if (!exists($attr->{'require'})  ||  $attr->{'require'}) {
 	my @inc = @INC;
 	if ($attr->{'lib'}) {
@@ -733,8 +723,14 @@ sub _ep_package ($$;$) {
 		    $attr->{'lib'});
 	}
 	local @INC = @inc;
-	$package =~ s/\:\:/\//g;
-	require $package . ".pm";
+        my $ppm = $package;
+	$ppm =~ s/\:\:/\//g;
+	require "$ppm.pm";
+    }
+    bless($self, $package);
+    if ($attr->{'isa'}) {
+	no strict 'refs';
+	@{$package."::ISA"} = split(',', $attr->{'isa'});
     }
     $self->init($attr);
     '';
@@ -826,6 +822,7 @@ _ep_query => <<'end_of__ep_query',
 sub _ep_query ($$;$) {
     my $self = shift; my $attr = shift;
     my $statement = $attr->{statement};
+    my $debug = $self->{'debug'};
     my $resultmethod =
 	(exists($attr->{resulttype})  &&  $attr->{'resulttype'} =~ /array/) ?
 	    "fetchrow_arrayref" : "fetchrow_hashref";
@@ -834,26 +831,21 @@ sub _ep_query ($$;$) {
     }
     my $dbh = $self->{$attr->{dbh} || 'dbh'};
     if (!$dbh) { die "Not connected"; }
-    if ($self->{debug}) {
-	$self->print("Executing query, statement = $statement\n");
-	if ($attr->{'startat'}) {
-	    $self->printf("Result starting at row %s\n",
-			  $attr->{'startat'} || 0);
-	}
-	if (exists($attr->{'limit'})) {
-	    $self->printf("Rows limited to %s\n", $attr->{'limit'});
-	}
-    }
     if (my $result = $attr->{result}) {
 	my $start_at = $attr->{'startat'} || 0;
 	my $limit = $attr->{'limit'} || -1;
-	my $sth;
-	if (($start_at  ||  $limit != -1)  &&
-	    $dbh->{'ImplementorClass'} eq 'DBD::mysql::db') {
-	    $sth = $dbh->prepare("$statement LIMIT $start_at, $limit");
-	} else {
-	    $sth = $dbh->prepare($statement);
+        if (($start_at  ||  $limit != -1)  &&
+            $dbh->{'ImplementorClass'} eq 'DBD::mysql::db') {
+            $statement .= " LIMIT $start_at, $limit";
+	    $start_at = 0;
+        }
+        if ($debug) {
+	    $self->print("Executing query, statement = $statement\n");
+	    $self->printf("Result starting at row %s\n",
+		$attr->{'startat'} || 0);
+	    $self->printf("Rows limited to %s\n", $attr->{'limit'});
 	}
+	my $sth = $dbh->prepare($statement);
 	$sth->execute();
 	my $list = [];
 	my $ref;
@@ -873,10 +865,9 @@ sub _ep_query ($$;$) {
 	    $self->{$result} = $list;
         }
 	$self->{"${result}_rows"} = scalar(@$list);
-	if ($self->{debug}) {
-	    $self->print("Result: ", scalar(@$list), " rows.\n");
-	}
+	$self->print("Result: ", scalar(@$list), " rows.\n") if $debug;
     } else {
+        $self->print("Doing Query: $statement\n") if $debug;
 	$dbh->do($statement);
     }
     '';
@@ -908,10 +899,9 @@ end_of__ep_select
 _ep_list => <<'end_of__ep_list',
 sub _ep_list ($$;$) {
     my $self = shift; my $attr = shift;
+    my $debug = $self->{'debug'};
     my $template;
-    if (!defined($template = $attr->{template})) {
-	return undef;
-    }
+    return undef unless defined($template = $attr->{template});
     my $output = '';
     my($list, $range);
     if ($range = $attr->{'range'}) {
@@ -921,8 +911,11 @@ sub _ep_list ($$;$) {
 	    $list = [split(/,/, $range)];
 	}
     } else {
-	$list = $self->{$attr->{items}};
+	my $items = $attr->{items};
+	$list = ref($items) ? $items : $self->{$items};
     }
+    $self->print("_ep_list: Template = $template, Items = ", @$list, "\n")
+	if $debug;
     my $l = $attr->{item} or die "Missing item name";
     my $ref;
     my $i = 0;
@@ -1217,6 +1210,51 @@ sub _ep_exit ($$;$) {
 }
 end_of__ep_exit
 
+_ep_redirect => <<'end_of__ep_redirect',
+sub _ep_redirect ($$;$) {
+    my $self = shift; my $attr = shift;
+    my $to = $attr->{'to'} or die "Missing redirect target";
+    $self->print($self->{'cgi'}->redirect($to));
+    $self->Stop();
+    '';
+}
+end_of__ep_redirect
+
+_ep_set => <<'end_of__ep_set',
+sub _ep_set ($$;$) {
+    my $self = shift; my $attr = shift;
+    return undef unless exists($attr->{'val'});
+    my $var = $attr->{'var'};
+    my $val = $attr->{'val'};
+    my $ref = $self;
+    while ($var =~ /(.*?)\-\>(.*)/) {
+        my $key = $1;
+        $var = $2;
+        if ($key =~ /^\d+$/) {
+            $ref = $ref->[$key];
+        } else {
+            $ref = $ref->{$key};
+        }
+    }
+    print "Setting $ref -> $var to $val\n" if $self->{'debug'};
+    if ($var =~ /^\d+$/) {
+        $ref->[$var] = $val;
+    } else {
+        $ref->{$var} = $val;
+    }
+    '';
+}
+end_of__ep_set
+
+_format_NBSP => <<'end_of__format_NBSP',
+sub _format_NBSP {
+    my $self = shift; my $str = shift;
+    if (!defined($str)  ||  $str eq '') {
+	$str = '&nbsp;';
+    }
+    $str;
+}
+end_of__format_NBSP
 
 );
 

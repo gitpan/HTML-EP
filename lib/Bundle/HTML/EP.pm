@@ -36,6 +36,10 @@ Bundle::DBD::CSV
 
 HTML::EP
 
+URI::Escape
+
+CGI::Cookie
+
 =head1 DESCRIPTION
 
 This bundle includes all that's needed to run the HTML::EP package with

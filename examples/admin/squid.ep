@@ -63,12 +63,17 @@ modify $admin_config->squid_conf_path$ for more complex things.
 </div>
 </ep-if>
 <div align=center>
+<p>
   <ep-language language="en">
     <input type=submit value="Save Data">
   </ep-language>
   <ep-language language="de">
     <input type=submit value="Daten speichern">
   </ep-language>
+</p>
+<p><a href="index.ep"><ep-language de="Administrationsmenü" en="Admin menu">
+   </a>
+</p>
 </div>
 </form>
 </body>

@@ -1,5 +1,12 @@
 #!/usr/bin/perl
-
+#
+#	Mofigications:
+#
+#		25.12.1998, Jochen Wiedmann
+#			Mails werden nicht mehrfach weitergeleitet;
+#			zu diesem Zweck wird ein eigener Header
+#			X-Mail2Group eingefuehrt.
+#
 use strict;
 require 5.004;
 
@@ -17,8 +24,11 @@ my $PREFS_FILE = '/home/httpd/html/admin/var/prefs';
 my $SPOOL_DIR  = '/var/spool/mail';
 my $DBI_DSN    = 'DBI:mysql:user';
 my $DBI_USER   = 'nobody';
-my $DBI_PASS   = '';
-#my $DBI_PASS   = 'my_name_is_nobody';
+#my $DBI_PASS   = '';
+my $DBI_PASS   = 'my_name_is_nobody';
+my $WWW_USER   = 'nobody';
+#my $LOCAL_MAILS = '\@euwid\.de\b';
+my $LOCAL_MAILS = '';
 
 my %MONTHS = (
     'jan' => 0,
@@ -46,9 +56,11 @@ my $options = {
 
 Getopt::Long::GetOptions($options, 'dsn=s', 'user=s', 'password=s',
 			 'verbose', 'debug');
-if ($options->{'debug'}) {
+my $debug = $options->{'debug'};
+if ($debug) {
     $options->{'verbose'} = 1;
 }
+my $verbose = $options->{'verbose'};
 
 my $config = do $PREFS_FILE
     || die "Error while reading prefs file $PREFS_FILE: $@";
@@ -75,12 +87,12 @@ while (my $ref = $sth->fetchrow_hashref()) {
     my $user = $ref->{'USER'};
     my $forward = $ref->{'CUSTOM'};
     if (!$forward) {
-	print "Ignoring user $user.\n" if $options->{'verbose'};
+	print "Ignoring user $user.\n" if $verbose;
 	next;
     }
     my $folder = "$SPOOL_DIR/$user";
     if (! -f $folder  ||  -z _) {
-	print "Empty folder of user $user.\n" if ($options->{'verbose'});
+	print "Empty folder of user $user.\n" if ($verbose);
 	next;
     }
     my @mails = eval { Mail::Util::read_mbox("$SPOOL_DIR/$user") };
@@ -91,11 +103,42 @@ while (my $ref = $sth->fetchrow_hashref()) {
     my $i = 0;
     foreach my $mail (@mails) {
 	++$i;
-	my $msg = Mail::Internet->new($mail);
-	my $id = $msg->head()->get("Message-Id");
-	if ($cache->{$id}) {
-	    print "Ignoring mail $i of user $user (Cache)\n"
-		if ($options->{'verbose'});
+	my $msg = Mail::Internet->new($mail, 'MailFrom' => 'KEEP');
+	my $head = $msg->head();
+	if ($head->get("X-Mail2Group")) {
+	    print "Ignoring mail $i of user $user: Mail2Group header found.\n"
+		if ($verbose);
+	    next;
+	}
+	my $local;
+	if ($LOCAL_MAILS) {
+	    foreach my $address ($head->get("reply-to"),
+				 $head->get("from")) {
+		if ($address =~ /$LOCAL_MAILS/oi) {
+		    $local = $address;
+		    last;
+		}
+	    }
+	    if ($local) {
+		print "Ignoring mail $i of user $user: Local sender $local.\n"
+		    if ($verbose);
+		next;
+	    }
+	}
+	my $id = $head->get("Message-Id");
+	if (!defined($id)) {
+	    print "Ignoring mail $i of user $user: Missing message-id.\n"
+		if ($verbose);
+	    next;
+	}
+	if ($id =~ /<(.*?)>/) {
+	    $id = $1;
+	}
+	$id .= ",$user";
+	if (exists($cache->{$id})) {
+	    print "Ignoring mail $i of user $user (Cache, $id)\n"
+		if ($verbose);
+	    $cache->{$id} = 1;
 	    next;
 	}
 	if ($msg) {
@@ -121,22 +164,21 @@ while (my $ref = $sth->fetchrow_hashref()) {
 	    }
 	    if ($time + $config->{'mail2group'}->{'delay'} * 24 * 60 * 60
 		> time()) {
-		printf("Ignoring mail $i of user $user: $received\n")
-		    if ($options->{'verbose'});
+		printf("Ignoring mail $i ($id) of user $user: $received\n")
+		    if ($verbose);
 		next;
 	    }
-	    printf("Forwarding mail $i of user $user to $forward.\n")
-		if ($options->{'verbose'});
-	    if ($options->{'debug'}) {
+	    printf("Forwarding mail $i ($id) of user $user to $forward.\n")
+		if ($verbose);
+	    $cache->{$id} = 1;
+	    if ($debug) {
 		next;
 	    }
-	    $msg->head()->add('X-Forwarder', 'mail2group');
+	    $head->add('X-Forwarder', "mail2group ($user)");
+	    $head->add('X-Mail2Group', "$user => $forward");
 	    $msg->smtpsend('Host' => '127.0.0.1',
 			   map { s/^\s+//; s/\s+$//; ('Bcc' => $_) }
 			       split(/,/, $forward));
-	    if (defined($id)) {
-		$cache->{$id} = 1;
-	    }
 	}
     }
 }
@@ -144,6 +186,9 @@ while (my $ref = $sth->fetchrow_hashref()) {
 
 my @keys = grep { !$cache->{$_} } keys %$cache;
 foreach my $key (@keys) {
+    if ($verbose) {
+	printf("Deleting ID $key from cache.\n");
+    }
     delete $cache->{$key};
 }
 
@@ -153,11 +198,14 @@ my $dump = Data::Dumper->new([$config], ['PREFS']);
 $dump->Indent(1);
 my $str = $dump->Dump();
 my $fh = Symbol::gensym();
-if ($options->{'verbose'}) {
+if ($verbose) {
     print("Saving data:\n$str\n");
 }
-if (!open($fh, ">$PREFS_FILE")  ||  !(print $fh $str)  ||
-    !close($fh)) {
-    die "Couldn't save data: $!";
+if (!$debug) {
+    if (!open($fh, ">$PREFS_FILE")  ||  !(print $fh $str)  ||
+	!close($fh)) {
+	die "Couldn't save data: $!";
+    }
+    my($login, $pass, $uid, $gid) = getpwnam($WWW_USER);
+    chown $uid, $gid, $PREFS_FILE;
 }
-chmod 0666, $PREFS_FILE;

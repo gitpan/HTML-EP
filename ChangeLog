@@ -1,3 +1,38 @@
+1999-01-13  Jochen Wiedmann  <joe@ispsoft.de> (0.1123)
+
+	* lib/HTML/EP.pm (_ep_query): $start_at was not set to 0 when using
+	  LIMIT.
+	* lib/HTML/EP.pm (_ep_set): Fixed missing "if $debug".
+	* Added CGI::Cookie and URI::Escape to prerequisited.
+	* lib/HTML/EP.pm (CgiRun): $ENV{'DOCUMENT_ROOT'} was not correctly
+	  handled.
+
+1999-01-09  Jochen Wiedmann  <joe@ispsoft.de> (0.1122)
+
+	* lib/HTML/EP.pm: Added ep-redirect.
+	* lib/HTML/EP.pm: Added ep-set.
+
+1998-12-31  Jochen Wiedmann  <joe@ispsoft.de> (0.1121)
+
+	* Added examples/admin/squid_simple.ep.
+	* Makefile.PL: Added option --config.
+
+1998-12-31  Jochen Wiedmann  <joe@ispsoft.de> (0.1120)
+
+	* lib/HTML/EP/Examples/Admin.pm (_ep_html_ep_examples_admin_squid):
+	  Added call of /usr/local/bin/usersModified --squid.
+
+1998-12-17  Jochen Wiedmann  <joe@ispsoft.de> (0.1119)
+
+	* lib/HTML/EP.pm (ParseVar): _ep_custom_formats now defaults
+	  to calling $self->_format_METHODNAME.
+	* lib/HTML/EP.pm (_ep_package): Fixed error handling in
+	  _ep_package.
+	* Added examples/glimpse and lib/HTML/EP/Examples/Glimpse.pm.
+	* lib/HTML/EP.pod: Fixed ep-error docs.
+	* examples/admin/mail2group: Fixed some bugs that are
+	  resending mails too frequently.
+
 1998-12-03  Jochen Wiedmann  <joe@ispsoft.de> (0.1118)
 
 	* Added $self->{'_ep_headers'}. Request by Uri Bruck

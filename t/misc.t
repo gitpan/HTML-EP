@@ -6,7 +6,7 @@ $^W = 1;
 $| = 1;
 
 
-print "1..48\n";
+print "1..56\n";
 
 require HTML::EP;
 
@@ -55,6 +55,26 @@ my $output = <<'END_OF_HTML';
 END_OF_HTML
 Test2($parser->Run($input), $output, "Multi-line comment.\n");
 
+$parser = HTML::EP->new();
+Test2($parser->Run('<ep-set var="a" val="b">'), '', "Setting a variable\n");
+Test($parser->{'a'} eq 'b');
+
+$parser = HTML::EP->new();
+Test2($parser->Run('<ep-set var="a">c</ep-set>'), '',
+		   "Setting a multi-line variable\n");
+Test($parser->{'a'} eq 'c');
+
+$parser = HTML::EP->new();
+$parser->{'a'} = {};
+Test2($parser->Run('<ep-set var="a->b">c</ep-set>'), '',
+		   "Setting a structured variable\n");
+Test($parser->{'a'}->{'b'} eq 'c');
+
+$parser = HTML::EP->new();
+$parser->{'a'} = [];
+Test2($parser->Run('<ep-set var="a->0">d</ep-set>'), '',
+		   "Setting an array variable\n");
+Test($parser->{'a'}->[0] eq 'd');
 
 $parser = HTML::EP->new();
 $input = <<'END_OF_HTML';

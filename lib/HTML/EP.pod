@@ -427,8 +427,10 @@ Example:
     <ep-comment>
 	If no email address was entered, force a user error.
     </ep-comment>
-    <ep-if eval="$cgi->email$" type=user>
-	<ep-error msg="Missing email address">
+    <ep-if eval="$cgi->email$">
+        Email address is ok.
+    <ep-else>
+	<ep-error msg="Missing email address" type=user>
     </ep-if>
 
 
@@ -850,17 +852,34 @@ otherwise doesn't detect what you want it to do.
 See L<"Custom variable formatting"> for setting up your own formats.
 
 
+Of course you can set EP variables from within an ep-perl section. But
+sometimes it is desirable to set them from within HTML. In such cases
+you can do something like
+
+  <ep-set var="a" val="b">
+
+Now, if you do a
+
+  Variable a has the value $a$.
+
+the value B<b> will be emitted. It is also possible to set multiline
+variables:
+
+  <ep-set var="a">
+    This is a template, extending a single line.
+  </ep-set>
+
+
 =head2 Custom variable formatting
 
 Sometimes the builtin formatting methods of HTML::EP are not sufficient.
-A good example are currencies. Such format methods are stored in the
-variable I<_ep_custom_formats>. As an example we create a method for
-formatting german currency values:
+A good example are currencies. These can be handled with format methods.
+For example, see the following method for german currency values:
 
+    <ep-package name="MyPackage">
     <ep-perl>
-        my $self = $_;
-        my $formats = ($self->{'_ep_custom_formats'} ||= {});
-        $formats->{'DM'} = sub {
+        package MyPackage;
+        sub _format_DM {
 	    my($self, $val) = @_;
 	    sprintf("%.2f DM", $val);
 	    $val =~ s/\./,/;
@@ -869,7 +888,7 @@ formatting german currency values:
         ''
     </ep-perl>
 
-This can be used as follows: Suggest we have the following variables:
+This can be used as follows, suggest we have the following variables:
 
     a = 1
     b = 2.4
@@ -887,6 +906,28 @@ name.
 
 The above method is already predefined by the HTML::EP::Locale module.
 
+As you have seen, the pattern $&METHODNAME->var$ triggers the call
+of
+
+    $self->_format_METHODNAME($self->{'var'});
+
+It is not always useful to fix a method name. In such cases you may
+instead store a code ref in
+
+    $self->{'_ep_custom_formats'}->{'METHODNAME'};
+
+For example the above could as well be
+
+    <ep-perl>
+        $_->{'_ep_custom_formats'}->{'DM'} = sub {
+	    my($self, $val) = @_;
+	    sprintf("%.2f DM", $val);
+	    $val =~ s/\./,/;
+	    $val;
+        };
+        ''
+    </ep-perl>
+
 
 =head2 Modifying the CGI headers
 
@@ -898,6 +939,14 @@ want to pass to CGI->header(). Use it like this:
 			      '-expires' => '+3d'
 			     }
     </ep-perl>
+
+
+=head2 Doing a redirect
+
+A redirect is moving the browser to another page without actually
+displaying the current page. You can do it like this:
+
+    <ep-redirect target="http://other.server/other/page">
 
 
 =head2 Producing Non-HTML
