@@ -41,7 +41,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.20_01';
+$HTML::EP::VERSION = '0.2003';
 
 
 sub new {
@@ -413,11 +413,25 @@ sub _ep_package {
 	$ppm =~ s/\:\:/\//g;
 	require "$ppm.pm";
     }
-    bless($self, $package);
-    if ($attr->{'isa'}) {
+
+    my $pack = ($self->{'_ep_package'} || 0) + 1;
+    if ($attr->{'isa'}  ||  $self->{'_ep_package'}) {
+	# If ep-package is called multiple times, or if $attr->{'isa'}
+	# is set, we create a new package and bless $self into it.
+	my @isa;
+	@isa = split(',', $attr->{'isa'}) if @isa;
+	my $p = ref($self);
 	no strict 'refs';
-	@{$package."::ISA"} = split(',', $attr->{'isa'});
+	push(@isa, $p);
+	my $bpack = "HTML::EP::PACK$pack";
+	@{"$bpack\::ISA"} = ($package, @isa);
+	bless($self, $bpack);
+    } else {
+	# Otherwise it's faster to bless $self into the package
+	bless($self, $package);
     }
+    $self->{'_ep_package'} = $pack;
+
     $self->init($attr);
     '';
 }
@@ -822,7 +836,7 @@ sub _ep_if {
 	if ($token->{'type'} eq 'S') {
 	    if ($token->{'tag'} eq 'ep-if') {
 		++$level;
-	    } elsif ($token->{'tag'} =~ /^ep-else(?:if)?$/) {
+	    } elsif ($token->{'tag'} =~ /^ep-els(?:e|e?if)?$/) {
 		next if $level;
 		if ($state) {
 		    $last = $tokens->First()-1;
@@ -849,6 +863,7 @@ sub _ep_if {
 }
 
 sub _ep_elseif { die "ep-elseif without ep-if" }
+sub _ep_elsif { die "ep-elsif without ep-if" }
 sub _ep_else { die "ep-else without ep-if" }
 
 

@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: locale.t,v 1.2 1999/08/13 13:17:20 joe Exp $
+# $Id: locale.t,v 1.1.1.1 1999/09/28 07:51:57 joe Exp $
 #
 
 use strict;

@@ -257,6 +257,24 @@ binaries. In particular you might need to restart Apache for loading
 changes in modules.
 
 
+=head2 Using the Internet Information Server
+
+I am sure there is a better way of installation, in the sense of mod_perl,
+however, I am no IIS expert. I can only recommend using Perl as an external
+binary, in the sense of CGI.
+
+The idea is to advice the IIS, that files with extension .ep have to
+be executed by running
+
+	C:\Perl\bin\perl.exe c:\Perl\bin\ep.cgi %s%s
+
+with %s%s being the path to the EP document. (Of course the paths have to
+be adjusted to your local Perl.) This can be done by creating a new
+extension in the window "Base directory/Configure". (Window name translated
+from the german IIS, it´s "Basisverzeichnis / Konfigurieren" here and might
+be different in english.)
+
+
 =head2 Available methods
 
 All EP tags are starting with the prefix I<ep->. Some available tags are:
@@ -308,7 +326,7 @@ your script. Example:
 		# Leave a string with the date as result. Will be
                 # inserted into the HTML stream:
 		sprintf("%02d.%02d.%04d", $mday, $mon+1, $year+1900);
-	    </ep-perl> 
+	    </ep-perl>
 	    </p>
         </body>
     </html>
@@ -1193,17 +1211,17 @@ It is quite easy to write own methods.
 
 
 =head2 Single line extensions
-  
+
 For example, suggest you want a method for setting EP variables:
-  
+
     <ep-set var="e" value=1>
-  
+
 Once the variable is created, you can access it via
-  
+
    $e$
-  
+
 This can be done like this:
-  
+
     <ep-perl package="HTML::EP">
       # Write a handler for ep-env:
       sub _ep_set ($$) {
@@ -1213,11 +1231,11 @@ This can be done like this:
 	  $self->{$var} = $val;
 	  '';
       }
-  
+
       # Return an empty string:
       '';
     </ep-perl>
-  
+
 Note that we used the name B<_ep_set>: By default the EP module takes
 the method name (B<ep-env> in out case) translates all hyphens to
 underscores and adds a leading underscore. We'll see in the next
@@ -1293,7 +1311,7 @@ Thus we have the following class design:
     Shop  ---isa--->  HTML::EP::Session  ---isa--->  HTML::EP
 
 We start writing our Shop extension like any other Perl package:
- 
+
     package Shop;
     @Shop::ISA = qw(HTML::EP::Session); # HTML::EP::Session inherits
                                         # from HTML::EP
@@ -1308,14 +1326,13 @@ We start writing our Shop extension like any other Perl package:
     sub init {
 	my $self = shift;
 	if (!$self->{'_ep_shop_initialized'}) {
-	    $self->SUPER::init();
-	    $self->{'_ep_funcs'}->{'ep-shop-session'} = {
-		'method' => '_ep_shop_session'
-		};
 	    $self->{'_ep_shop_initialized'} = 1;
+	    $self->SUPER::init();
+	    # Do something here
+	    ...
 	}
     }
- 
+
 In the HTML page we load this package as follows:
 
     <ep-package name="Shop">
@@ -1331,6 +1348,21 @@ can use the attribute I<lib> to add private directories to the library
 search path. This can be relative to the servers document root, as in
 
     <ep-package name="Shop" lib="/perl-lib">
+
+
+=head2 Inheriting from multiple extensions
+
+You may use multiple ep-package statements, as in
+
+    <ep-package name="HTML::EP::Locale">
+    <ep-package name="HTML::EP::Session">
+
+Your object will be blessed into a new class, that inherits from
+both. However, note that the order is reversed: In the above
+example, your object will be an instance of class HTML::EP::PACK2
+and HTML::EP::PACK2::ISA will be set to
+
+    qw(HTML::EP::Session HTML::EP::Locale)
 
 
 =head1 CHANGES

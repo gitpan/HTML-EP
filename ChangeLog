@@ -1,3 +1,18 @@
+1999-09-28  Jochen Wiedmann  <joe@ispsoft.de> (0.20_02)
+
+	* Added hints for installation with IIS.
+	* ep.cgi.PL: $ARGV[0] is now setting $ENV{'PATH_TRANSLATED'}
+	  for use with IIS.
+	* lib/HTML/EP.pm: ep-elseif may now be called as ep-elsif
+	  Jason McMullan <jmcc@ontv.com>.
+	* lib/HTML/EP.pm: ep-package may now be called many times;
+	  $self is blessed into a new package that inherits from all.
+	  Suggested by Jason McMullan <jmcc@ontv.com>.
+
+1999-09-27  Jochen Wiedmann  <joe@ispsoft.de> (0.20_01)
+
+	* Makefile.PL: Fixed a missing "require Data::Dumper".
+
 1999-09-24  Jochen Wiedmann  <joe@ispsoft.de> (0.20_00)
 
 	* Merged in patches of Jason McMullan (jmcc@ontv.com) for

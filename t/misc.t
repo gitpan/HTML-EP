@@ -1,6 +1,6 @@
 # -*- perl -*-
 #
-# $Id: misc.t,v 1.2 1999/09/21 10:19:05 joe Exp $
+# $Id: misc.t,v 1.2 1999/10/03 17:46:25 joe Exp $
 #
 
 use strict;
@@ -9,7 +9,7 @@ $^W = 1;
 $| = 1;
 
 
-print "1..77\n";
+print "1..80\n";
 
 use HTML::EP ();
 
@@ -529,5 +529,19 @@ $parser = HTML::EP->new();
 $parser->{'a'} = 0;
 Test2($parser->Run($input), "");
 
+
+print "Checking repeated ep-package\n";
+$input = q{
+<ep-package name="HTML::EP::Locale">
+<ep-package name="HTML::EP::EditTable">
+};
+$parser = HTML::EP->new();
+Test2($parser->Run($input), "\n\n\n");
+Test(ref($parser) eq "HTML::EP::PACK2")
+    or print "$parser is a ", ref($parser), "\n";
+Test(@HTML::EP::PACK2::ISA == 2  &&
+     $HTML::EP::PACK2::ISA[0] eq 'HTML::EP::EditTable'  &&
+     $HTML::EP::PACK2::ISA[1] eq 'HTML::EP::Locale')
+    or print "Wrong ISA, got\n", map { "  $_\n " } @HTML::EP::PACK2::ISA;
 
 END { unlink 'foo' }

@@ -22,7 +22,7 @@ sub _ep_edittable_edit {
     my($query, $id);
 
     my $dest = ($attr->{'dest'} ||= $table);
-    $attr->{'prefix'} ||= "$dest_";
+    $attr->{'prefix'} ||= "$dest\_";
     $attr->{'sqlquery'} ||= 1;
 
     if ($action eq 'insert') {
