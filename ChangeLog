@@ -1,3 +1,8 @@
+1999-11-08  Jochen Wiedmann  <joe@ispsoft.de> (0.2005)
+
+	* Added $self->escapeHTML() in favour of
+	  HTML::Entities::encode_entities.
+
 1999-11-08  Jochen Wiedmann  <joe@ispsoft.de> (0.2004)
 
 	* lib/HTML/EP.pm (EncodeByAttr): Fixed a bug in HTML output

@@ -23,15 +23,15 @@ require 5.004;
 use strict;
 
 
-require Apache;
-require DBI;
-require HTML::EP;
-require Symbol;
+use Apache ();
+use DBI ();
+use HTML::EP ();
+use Symbol ();
 
 # Pull in HTML::EP and the helper packages
-require HTML::EP;
-require HTML::EP::Locale;
-require HTML::EP::Session;
+use HTML::EP ();
+use HTML::EP::Locale ();
+use HTML::EP::Session ();
 
 
 package Apache::EP;

@@ -44,7 +44,6 @@ sub prompt {
 my %prereq =
 ( 'Data::Dumper' => 0,
   'Storable' => 0,
-  'LWP' => 0,
   'Mail::Internet' => 1.32,
   'CGI::Cookie' => 0
 );

@@ -22,8 +22,8 @@
 require 5.004;
 use strict;
 
-require HTML::EP;
-require Storable;
+use HTML::EP ();
+use Storable ();
 
 
 package HTML::EP::Session;
@@ -61,11 +61,8 @@ sub _ep_session {
     my $var = $attr->{'var'} || 'session';
     $self->{'_ep_session_var'} = $var;
     $self->{$var} = $session;
-    if ($self->{'debug'}) {
-	require Data::Dumper;
-	$self->print("Created session: ", Data::Dumper::Dumper($session),
-		     "\n");
-    }
+    $self->print("Created session:\n", $self->Dump($session))
+	if $self->{'debug'};
     '';
 }
 
@@ -76,12 +73,8 @@ sub _ep_session_store {
 	or die "No session ID given";
     my $var = $attr->{'var'} || $self->{'_ep_session_var'};
     my $session = $self->{$var}	or die "No such session: $var";
-    if ($self->{'debug'}) {
-	require Data::Dumper;
-	$self->print("Storing session: ",
-		     Data::Dumper->new([$session], [$var])->Indent(1)->Dump(),
-		     "\n");
-    }
+    $self->print("Storing session:\n", $self->Dump($session))
+	if $self->{'debug'};
     $session->Store($self, $id, $attr->{'locked'});
     '';
 }

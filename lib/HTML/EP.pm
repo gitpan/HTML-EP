@@ -32,7 +32,6 @@
 require 5.005;
 use strict;
 
-use HTML::Entities ();
 use CGI ();
 use Symbol ();
 use HTML::EP::Config ();
@@ -41,7 +40,7 @@ use HTML::EP::Parser ();
 
 package HTML::EP;
 
-$HTML::EP::VERSION = '0.2004';
+$HTML::EP::VERSION = '0.2005';
 
 
 sub new {
@@ -278,6 +277,16 @@ sub printf {
     $self->print(sprintf($format, @args));
 }
 
+sub escapeHTML {
+    my $self = shift; my $str = shift;
+    $str =~ s/&/&amp;/g;
+    $str =~ s/\"/&quot;/g;
+    $str =~ s/>/&gt;/g;
+    $str =~ s/</&lt;/g;
+    $str =~ s/\$/&#36;/g;
+    $str;
+}
+
 sub ParseVar {
     my($self, $type, $var, $subvar) = @_;
     my $func;
@@ -286,7 +295,7 @@ sub ParseVar {
 	# Custom format
 	$func = exists($self->{'_ep_custom_formats'}->{$var}) ?
 	    $self->{'_ep_custom_formats'}->{$var} : "_format_$var";
-	
+
 	# First part of subvar becomes var
 	if ($subvar  &&  $subvar =~ /^\-\>(\w+)(.*)/) {
 	    $var = $1;
@@ -318,7 +327,7 @@ sub ParseVar {
     $var = '' unless defined($var);
 
     if (!$type  ||  $type eq '%') {
-	$var =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
+	$var = $self->escapeHTML($var);
     } elsif ($type eq '#') {
 	$var = CGI->escape($var);
     } elsif ($type eq '~') {
@@ -515,13 +524,19 @@ sub EvalPerlCode {
 
 sub EncodeByAttr {
     my($self, $attr, $str) = @_;
+    my $debug = $self->{'debug'};
+    $self->print("EncodeByAttr: Input $str\n") if $debug;
     if (my $type = $attr->{'output'}) {
 	if ($type eq 'html') {
-	    $str =~ s/([<&>"\$])/HTML::Entities::char2entity{$1}/g;
+	    $str = $self->escapeHTML($str);
+	} elsif ($type eq 'htmlbr') {
+	    $str = $self->escapeHTML($str);
+	    $str =~ s/\n/<br>/sg;
 	} elsif ($type eq 'url') {
 	    $str = CGI->escape($str);
 	}
     }
+    $self->print("EncodeByAttr: Output $str\n") if $debug;
     $str;
 }
 
@@ -624,8 +639,7 @@ sub _ep_select ($$;$) {
     my @tags;
     while (my($var, $val) = each %$attr) {
 	if ($var !~ /^template|range|format|items?|selected(?:\-text)?$/i){
-	    $val =~ s/([<&>"\$])/$HTML::Entities::char2entity{$1}/g;
-	    push(@tags, sprintf('%s="%s"', $var, $val));
+	    push(@tags, sprintf('%s="%s"', $var, $self->escapeHTML($val)));
 	}
     }
 
